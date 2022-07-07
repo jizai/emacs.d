@@ -1,0 +1,1457 @@
+* 基础设置
+** lex binding
+#+begin_src emacs-lisp
+;; -*- lexical-binding: t -*-
+#+end_src
+** 插件相关
+*** 插件源设置
+#+begin_src emacs-lisp
+(setq package-archives '(
+    ("melpa" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/melpa/") 
+    ("gnu" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/gnu/")
+    ("org" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/org/")))
+#+end_src
+
+*** 安装插件
+    如果require一个包,但是这个包不存在,那么就会报错,后面的代码就不会执行了. 这个函数用来替换原来的require函数,出错之后只会报警告 
+#+begin_src emacs-lisp
+(defun my-require (feature)
+  "Make sure FEATURE is required."
+  (unless (featurep feature)
+    (condition-case nil
+        (require feature)
+      (error nil))))
+
+(defun my-package-install (package &optional min-version no-refresh)
+  "Ask elpa to install given PACKAGE with MIN-VERSION. If NO-REFRESH is nil, `package-refresh-contents' is called."
+  (my-require 'package)
+  (unless (package-installed-p package min-version) ;;没有安装才进行安装
+    (unless (or (assoc package package-archive-contents) no-refresh)
+      (package-refresh-contents))
+    (package-install package)))
+#+end_src
+
+** 自定义函数
+*** 空闲运行
+#+begin_src emacs-lisp
+(defvar my-disable-idle-timer (daemonp)
+  "Function passed to `my-run-with-idle-timer' is run immediately.")
+(defun my-run-with-idle-timer (seconds func)
+  "After SECONDS, run function FUNC once."
+  (cond
+   ((or my-disable-idle-timer)
+    (funcall func))
+   (t
+    (run-with-idle-timer seconds nil func))))
+#+end_src
+
+*** 窗口缩放
+#+begin_src emacs-lisp
+(defun narrow-to-region-indirect-buffer-maybe (start end use-indirect-buffer)
+  "Indirect buffer could multiple widen on same file."
+  (if (region-active-p) (deactivate-mark))
+  (if use-indirect-buffer
+      (with-current-buffer (clone-indirect-buffer
+                            (generate-new-buffer-name
+                             (format "%s-indirect-:%s-:%s"
+                                     (buffer-name)
+                                     (line-number-at-pos start)
+                                     (line-number-at-pos end)))
+                            'display)
+        (narrow-to-region start end)
+        (goto-char (point-min)))
+      (narrow-to-region start end)))
+
+
+(defun narrow-or-widen-dwim (&optional use-indirect-buffer)
+  "If the buffer is narrowed, it widens.
+ Otherwise, it narrows to region, or Org subtree.
+If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
+  (interactive "P")
+  (cond
+   ((and (not use-indirect-buffer) (buffer-narrowed-p))
+    (widen))
+
+   ((and (not use-indirect-buffer)
+         (eq major-mode 'org-mode)
+         (fboundp 'org-src-edit-buffer-p)
+         (org-src-edit-buffer-p))
+    (org-edit-src-exit))
+
+   ;; narrow to region
+   ((region-active-p)
+    (narrow-to-region-indirect-buffer-maybe (region-beginning)
+                                            (region-end)
+                                            use-indirect-buffer))
+
+   ;; narrow to specific org element
+   ((derived-mode-p 'org-mode)
+    (cond
+     ((ignore-errors (org-edit-src-code)) t)
+     ((ignore-errors (org-narrow-to-block) t))
+     ((ignore-errors (org-narrow-to-element) t))
+     (t (org-narrow-to-subtree))))
+
+   ((derived-mode-p 'diff-mode)
+    (let* (b e)
+      (save-excursion
+        ;; If the (point) is already beginning or end of file diff,
+        ;; the `diff-beginning-of-file' and `diff-end-of-file' return nil
+        (setq b (progn (diff-beginning-of-file) (point)))
+        (setq e (progn (diff-end-of-file) (point))))
+      (when (and b e (< b e))
+        (narrow-to-region-indirect-buffer-maybe b e use-indirect-buffer))))
+
+   ((derived-mode-p 'prog-mode)
+    (mark-defun)
+    (narrow-to-region-indirect-buffer-maybe (region-beginning)
+                                            (region-end)
+                                            use-indirect-buffer))
+   (t (error "Please select a region to narrow to"))))
+
+#+end_src
+** 把玩插件设置
+
+#+begin_src emacs-lisp
+(defun add-subdirs-to-load-path (dir)
+  "Recursive add directories to 'load-path'"
+  (let ((default-directory (file-name-as-directory dir)))
+    (add-to-list 'load-path dir)
+    (normal-top-level-add-subdirs-to-load-path)))
+(add-subdirs-to-load-path "/home/yu/.emacs.d/yuemacs")
+#+end_src
+
+** 外观
+#+begin_src emacs-lisp
+;; (linum-mode 1)
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+(horizontal-scroll-bar-mode -1)
+(menu-bar-mode -1)
+(setq inhibit-startup-screen t)
+
+;; 设置英文字体  "Bookerly" "JetBrainsMono Nerd Font Mono" "Gintronic" "Cascadia Code PL"
+(set-face-attribute 'default nil :font "JetBrainsMono Nerd Font Mono")
+;; 设置中文字体  "FZYingXueS-R-GB"  "Hiragino Sans GB"
+(set-fontset-font t '(#x4e00 . #x9fff) "Hiragino Sans GB")
+;; 设置字体大小   值在1/10 pt，所以100会给你10 pt
+(set-face-attribute 'default nil :height 150)
+
+;;高亮加粗当前行
+(global-hl-line-mode 1)
+;; (set-face-attribute 'hl-line nil :inherit nil  :bold t :background nil :foreground nil)
+
+;;设置配色方案
+(my-package-install 'modus-themes)
+(setq modus-themes-bold-constructs t)
+(setq modus-themes-syntax '(faint alt-syntax green-strings yellow-comments))
+(setq modus-themes-hl-line '(underline accented))
+(load-theme 'modus-operandi t)
+
+;; 光标提示
+(my-package-install  'beacon)
+(beacon-mode 1)
+(setq beacon-color "#FF4500")
+#+end_src
+** 窗口
+*** 安装插件
+#+begin_src emacs-lisp
+(my-package-install 'winum)
+#+end_src
+*** 设置
+#+begin_src emacs-lisp
+(with-eval-after-load 'winum
+  (setq winum-format "%s")
+  (setq winum-mode-line-position 0)
+  (set-face-attribute 'winum-face nil :foreground "DeepPink" :underline "DeepPink" :weight 'bold))
+(my-run-with-idle-timer 0.5 #'winum-mode)
+#+end_src
+** 文件
+*** 最近打开的文件
+#+begin_src emacs-lisp
+(my-require 'recentf)
+(recentf-mode 1)
+(setq recentf-max-menu-item 10)
+#+end_src
+*** 自动加载外部修改
+    #+begin_src emacs-lisp
+(global-auto-revert-mode 1)
+    #+end_src
+*** 重新打开刚刚关闭的文件
+    重新打开是指:在emacs不关闭的情况下,打开刚刚关闭的文件
+#+begin_src emacs-lisp
+(defvar yu-last-closed-file-list nil)
+
+(defun yu-last-closed-file-track ()
+  (when buffer-file-name
+    (push buffer-file-name yu-last-closed-file-list)))
+
+(defun yu-last-closed-file-reopen ()
+  (interactive)
+  (if yu-last-closed-file-list
+      (find-file (pop yu-last-closed-file-list))
+    (user-error "No last closed file to reopen")))
+
+(define-minor-mode yu-last-closed-file-mode
+  "Reopen last closed file."
+  :global t
+  (if yu-last-closed-file-mode
+      (add-hook 'kill-buffer-hook #'yu-last-closed-file-track)
+    (remove-hook 'kill-buffer-hook #'yu-last-closed-file-track)))
+(yu-last-closed-file-mode)
+
+#+end_src
+*** 备份文件
+    备份文件形如:filename~
+#+begin_src emacs-lisp
+;; 不生成备份文件
+(setq make-backup-files nil)
+#+end_src
+
+*** 自动保存文件
+   Auto-saving 可以帮你自动保存：每当你输入一些内容或者停止输入一段时间后，Emacs 会帮你自动保存（到另一个单独的文件(#filename#)，不是原文件），此时如果 Emacs 异常退出了，再打开 Emacs 时，Emacs 就会问你是不是需要恢复文件。如果你手动保存比 Auto-saving 还频繁的话，确实没必要开着 Auto-saveing 了。
+#+begin_src emacs-lisp
+;; 关闭备份文件
+(setq auto-save-default nil)
+#+end_src
+*** 文件锁
+   lock file 是在出现编辑同一个文件时，Emacs 提供的保护措施。比如说，你先用 Emacs 编辑会文件，并没保存，之后又在用 Vim 编辑并保存了同一个文件，这时你回到 Emacs 试图保存文件，Emacs 会警告你：这个文件已经在别的地方修改了，一旦你直接保存，就会失去在 Vim 里的修改，你就有机会决定如何处理这个冲突。
+
+** 鼠标
+   让鼠标滚动更好用
+#+begin_src emacs-lisp
+(setq mouse-wheel-scroll-amount '(1 ((shift) . 1) ((control) . nil)))
+(setq mouse-wheel-progressive-speed nil)
+#+end_src
+** 其他
+#+begin_src emacs-lisp
+(fset 'yes-or-no-p 'y-or-n-p)
+;; 关闭错误时的“哔哔”的警告提示音
+(setq ring-bell-function 'ignore)  
+#+end_src
+* Evil相关
+** 基本设置
+   设置undo历史记录数 
+#+begin_src emacs-lisp
+(setq undo-limit 8000000
+      undo-strong-limit 8000000
+      undo-outer-limit 8000000)
+#+end_src
+
+   设置文本查看格式
+#+begin_src emacs-lisp
+(defvar my-search-text-history nil "List of text I searched.")
+(defun my-select-from-search-text-history ()
+  "My select the history of text searching."
+  (interactive)
+  (ivy-read "Search text history:" my-search-text-history
+            :action (lambda (item)
+                      (copy-yank-str item)
+                      (message "%s => clipboard & yank ring" item))))
+
+(defun my-cc-isearch-string (&rest args)
+  "Add `isearch-string' into history."
+  (ignore args)
+  (and isearch-string
+       (> (length isearch-string) 0)
+       (push isearch-string my-search-text-history)))
+#+end_src
+    
+** evil
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil)
+(my-package-install 'undo-fu)
+(my-package-install 'expand-region)
+#+end_src
+*** 常规设置
+    切换至normal模式时，光标会回退一位,与vim行为保持一致
+    #+begin_src emacs-lisp
+(evil-mode 1)
+(setq evil-move-cursor-back t)
+;; 在某些特定的模式下，并不需要开启evil以编辑文本，下面这一串配置使evil在这些模式下使用指定的模式；emacs代表emacs默认的编辑模式，而normal则是evil的normal模式 
+(defvar my-initial-evil-state-setup
+  '((minibuffer-inactive-mode . emacs)
+    (calendar-mode . emacs)
+    (special-mode . emacs)
+    (grep-mode . emacs)
+    (Info-mode . emacs)
+    (term-mode . emacs)
+    (sdcv-mode . emacs)
+    (anaconda-nav-mode . emacs)
+    (log-edit-mode . emacs)
+    (vc-log-edit-mode . emacs)
+    (magit-log-edit-mode . emacs)
+    (erc-mode . emacs)
+    (diff-mode . emacs)
+    (ffip-diff-mode . normal)
+    (neotree-mode . emacs)
+    (w3m-mode . emacs)
+    (gud-mode . emacs)
+    (help-mode . emacs)
+    (eshell-mode . emacs)
+    (shell-mode . emacs)
+    (xref--xref-buffer-mode . emacs)
+    (epa-key-list-mode . emacs)
+    (fundamental-mode . emacs)
+    (weibo-timeline-mode . emacs)
+    (weibo-post-mode . emacs)
+    (woman-mode . emacs)
+    (sr-mode . emacs)
+    (profiler-report-mode . emacs)
+    (dired-mode . emacs)
+    (compilation-mode . emacs)
+    (speedbar-mode . emacs)
+    (ivy-occur-mode . emacs)
+    (ffip-file-mode . emacs)
+    (ivy-occur-grep-mode . normal)
+    (messages-buffer-mode . normal)
+    (js2-error-buffer-mode . emacs))
+  "Default evil state per major mode.")
+
+(with-eval-after-load 'evil
+  ;; replace undo-tree with undo-fu  @see https://github.com/emacs-evil/evil/issues/1074
+  (setq evil-undo-system 'undo-redo)
+  (define-key evil-normal-state-map "u" 'undo-fu-only-undo)
+  (define-key evil-normal-state-map (kbd "C-r") 'undo-fu-only-redo)
+
+  ;; initial evil state per major mode
+  (dolist (p my-initial-evil-state-setup)
+    (evil-set-initial-state (car p) (cdr p)))
+
+  ;; evil re-assign "M-." to `evil-repeat-pop-next' which I don't use actually. Restore "M-." to original binding command
+  (define-key evil-normal-state-map (kbd "M-.") 'xref-find-definitions)
+  (setq expand-region-contract-fast-key "z") ;; 使用z在可视模式下修改所选区域   expand-region-custom.el中定义的
+  ;; evil 1.0.8 search word instead of symbol  @see https://bitbucket.org/lyro/evil/issue/360/possible-evil-search-symbol-forward
+  (setq evil-symbol-word-search t)
+
+  ;; don't add replaced text to `kill-ring'
+  (setq evil-kill-on-visual-paste nil)
+
+  ;; @see https://emacs.stackexchange.com/questions/9583/how-to-treat-underscore-as-part-of-the-word
+  ;; uncomment below line to make "dw" has exact same behavior in evil as as in vim
+  ;; (defalias #'forward-evil-word #'forward-evil-symbol)
+
+  ;; @see https://bitbucket.org/lyro/evil/issue/511/let-certain-minor-modes-key-bindings
+  (defmacro adjust-major-mode-keymap-with-evil (m &optional r)
+    `(with-eval-after-load (quote ,(if r r m))
+       (evil-make-overriding-map ,(intern (concat m "-mode-map")) 'normal)
+       ;; force update evil keymaps after git-timemachine-mode loaded
+       (add-hook (quote ,(intern (concat m "-mode-hook"))) #'evil-normalize-keymaps)))
+  (adjust-major-mode-keymap-with-evil "git-timemachine")
+  (setq evil-default-cursor t))
+#+end_src
+
+    设置evil的插入模式使用emacs原生按键
+#+begin_src emacs-lisp
+;; ;; remove all keybindings from insert-state keymap,it is VERY VERY important
+(setcdr evil-insert-state-map nil)
+;;;把emacs模式下的按键绑定到Insert模式下
+(define-key evil-insert-state-map
+  (read-kbd-macro evil-toggle-key) 'evil-emacs-state)
+;; but [escape] should switch back to normal state
+(define-key evil-insert-state-map [escape] 'evil-normal-state)
+#+end_src
+
+*** 定义常规text objects
+   定义text objects, works on evil v1.0.9 using older method
+   例 =abc=  光标在a上,按住vi=,则选取abc
+   #+begin_src emacs-lisp
+(defmacro my-evil-define-and-bind-text-object (key start-regex end-regex)
+  (let* ((inner-name (make-symbol "inner-name"))
+         (outer-name (make-symbol "outer-name")))
+    `(progn
+       (evil-define-text-object ,inner-name (count &optional beg end type)
+         (evil-select-paren ,start-regex ,end-regex beg end type count nil))
+       (evil-define-text-object ,outer-name (count &optional beg end type)
+         (evil-select-paren ,start-regex ,end-regex beg end type count t))
+       (define-key evil-inner-text-objects-map ,key (quote ,inner-name))
+       (define-key evil-outer-text-objects-map ,key (quote ,outer-name)))))
+
+(my-evil-define-and-bind-text-object "=" "=" "=")
+(my-evil-define-and-bind-text-object "|" "|" "|")
+(my-evil-define-and-bind-text-object "/" "/" "/")
+(my-evil-define-and-bind-text-object "l" "^ *" " *$") ;;选取一行
+(my-evil-define-and-bind-text-object "r" "\{\{" "\}\}")
+
+#+end_src
+
+*** 定义文件路径text objects
+   将文件路径做为text object 
+     - "vif" to select base name
+     - "vaf" to select full path
+   example:
+     "/hello/world"
+     "C:hello\\hello\\world\\test.exe"
+   #+begin_src emacs-lisp
+(defun my-evil-path-is-separator-char (ch)
+  "Check ascii table that CH is slash characters.
+If the character before and after CH is space or tab, CH is NOT slash"
+  (let* (rlt prefix-ch postfix-ch)
+    (when (and (> (point) (point-min)) (< (point) (point-max)))
+      (save-excursion
+        (backward-char)
+        (setq prefix-ch (following-char)))
+      (save-excursion
+        (forward-char)
+        (setq postfix-ch (following-char))))
+    (if (and (not (or (= prefix-ch 32) (= postfix-ch 32)))
+             (or (= ch 47) (= ch 92)) )
+        (setq rlt t))
+    rlt))
+
+(defun my-evil-path-not-path-char (ch)
+  "Check ascii table for character CH."
+  (or (and (<= 0 ch) (<= ch 32))
+      (memq ch
+            '(34 ; double quotes
+              ?'
+              40 ; (
+              41 ; )
+              ?<
+              ?>
+              91 ; [
+              93 ; ]
+              ?`
+              ?{
+              ?}
+              127))))
+
+(defun my-evil-path-calculate-path (b e)
+  (let* (rlt f)
+    (when (and b e)
+      (setq b (+ 1 b))
+      (when (save-excursion
+              (goto-char e)
+              (setq f (my-evil-path-search-forward-char 'my-evil-path-is-separator-char t))
+              (and f (>= f b)))
+        (setq rlt (list b (+ 1 f) (- e 1)))))
+    rlt))
+
+(defun my-evil-path-get-path-already-inside ()
+  (let* (b e)
+    (save-excursion
+      (setq b (my-evil-path-search-forward-char 'my-evil-path-not-path-char t)))
+    (save-excursion
+      (when (setq e (my-evil-path-search-forward-char 'my-evil-path-not-path-char))
+        (goto-char (- e 1))
+        ;; example: hello/world,
+        (if (memq (following-char) '(?, ?.))
+            (setq e (- e 1)))))
+    (my-evil-path-calculate-path b e)))
+
+(defun my-evil-path-search-forward-char (fn &optional backward)
+  (let* (found
+         rlt
+         (limit (if backward (point-min) (point-max)))
+         out-of-loop)
+    (save-excursion
+      (while (not out-of-loop)
+        ;; for the char, exit
+        (if (setq found (apply fn (list (following-char))))
+            (setq out-of-loop t)
+          ;; reach the limit, exit
+          (if (= (point) limit)
+              (setq out-of-loop t)
+            ;; keep moving
+            (if backward (backward-char) (forward-char)))))
+      (if found (setq rlt (point))))
+    rlt))
+
+(defun my-evil-path-extract-region ()
+  "Find the closest file path."
+  (let* (rlt b f1 f2)
+    (if (and (not (my-evil-path-not-path-char (following-char)))
+             (setq rlt (my-evil-path-get-path-already-inside)))
+        ;; maybe (point) is in the middle of the path
+        t
+      ;; need search forward AND backward to find the right path
+      (save-excursion
+        ;; path in backward direction
+        (when (setq b (my-evil-path-search-forward-char #'my-evil-path-is-separator-char t))
+          (goto-char b)
+          (setq f1 (my-evil-path-get-path-already-inside))))
+      (save-excursion
+        ;; path in forward direction
+        (when (setq b (my-evil-path-search-forward-char #'my-evil-path-is-separator-char))
+          (goto-char b)
+          (setq f2 (my-evil-path-get-path-already-inside))))
+      ;; pick one path as the final result
+      (cond
+       ((and f1 f2)
+        (if (> (- (point) (nth 2 f1)) (- (nth 0 f2) (point)))
+            (setq rlt f2)
+          (setq rlt f1)))
+       (f1
+        (setq rlt f1))
+       (f2
+        (setq rlt f2))))
+
+    rlt))
+
+(evil-define-text-object my-evil-path-inner-text-object (&optional count begin end type)
+  "File name of nearby path"
+  (let* ((selected-region (my-evil-path-extract-region)))
+    (if selected-region
+        (evil-range (nth 1 selected-region) (nth 2 selected-region) :expanded t))))
+
+(evil-define-text-object my-evil-path-outer-text-object (&optional count begin end type)
+  "Nearby path."
+  (let* ((selected-region (my-evil-path-extract-region)))
+    (when selected-region
+      (evil-range (car selected-region) (+ 1 (nth 2 selected-region)) type :expanded t))))
+
+(define-key evil-inner-text-objects-map "f" 'my-evil-path-inner-text-object)
+(define-key evil-outer-text-objects-map "f" 'my-evil-path-outer-text-object)
+
+#+end_src
+    
+*** vi各模式快捷键
+   #+begin_src emacs-lisp
+;; 配置evil-ex模式下的快捷键 
+(define-key evil-ex-completion-map (kbd "C-a") 'move-beginning-of-line)
+(define-key evil-ex-completion-map (kbd "C-b") 'backward-char)
+(define-key evil-ex-completion-map (kbd "M-p") 'previous-complete-history-element)
+(define-key evil-ex-completion-map (kbd "M-n") 'next-complete-history-element)
+
+;; 配置evil-normal模式下的快捷键 
+(define-key evil-normal-state-map "Y" (kbd "y$"))
+(define-key evil-normal-state-map "go" 'goto-char)
+(define-key evil-normal-state-map (kbd "C-]") 'counsel-etags-find-tag-at-point)
+(define-key evil-normal-state-map "gh" 'beginning-of-defun)
+
+;; 配置evil-visual模式下的快捷键 
+(define-key evil-visual-state-map (kbd "v") 'er/expand-region)
+(define-key evil-visual-state-map (kbd "C-]") 'counsel-etags-find-tag-at-point)
+
+;; 配置evil-insert模式下的快捷键 
+(define-key evil-insert-state-map (kbd "C-x C-n") 'evil-complete-next-line)
+(define-key evil-insert-state-map (kbd "C-x C-p") 'evil-complete-previous-line)
+(define-key evil-insert-state-map (kbd "C-]") 'aya-expand)
+(define-key evil-insert-state-map (kbd "C-e") 'move-end-of-line)
+(define-key evil-insert-state-map (kbd "C-k") 'kill-line)
+(define-key evil-insert-state-map (kbd "M-j") 'yas-expand)
+
+;; 配置evil-emacs模式下的快捷键 
+(define-key evil-emacs-state-map (kbd "M-j") 'yas-expand)
+#+end_src
+*** 设置evil的标记历史显示格式 
+#+begin_src emacs-lisp
+(defvar evil-global-markers-history nil)
+(defun my-evil-set-marker-hack (char &optional pos advance)
+  "Place evil marker's position into history."
+  (ignore advance)
+  (unless pos (setq pos (point)))
+  ;; only remember global markers
+  (when (and (>= char ?A) (<= char ?Z) buffer-file-name)
+    (setq evil-global-markers-history
+          (delq nil
+                (mapcar `(lambda (e)
+                           (unless (string-match (format "^%s@" (char-to-string ,char)) e)
+                             e))
+                        evil-global-markers-history)))
+    (setq evil-global-markers-history
+          (add-to-list 'evil-global-markers-history
+                       (format "%s@%s:%d:%s"
+                               (char-to-string char)
+                               (file-truename buffer-file-name)
+                               (line-number-at-pos pos)
+                               (string-trim (my-line-str)))))))
+(advice-add 'evil-set-marker :before #'my-evil-set-marker-hack)
+
+#+end_src
+*** 定义自己的文本对象v 代表某个语句 
+#+begin_src emacs-lisp
+(evil-define-text-object my-evil-a-statement (count &optional beg end type)
+  "Select a statement."
+  (list (my-skip-white-space (line-beginning-position) 1)
+        (line-end-position)))
+
+(evil-define-text-object my-evil-inner-statement (count &optional beg end type)
+  "Select inner statement."
+  (let* ((b (my-skip-white-space (line-beginning-position) 1))
+         (e (line-end-position)))
+    (list (save-excursion
+            (goto-char b)
+            (while (and (< (point) e) (not (eq (following-char) 61)))
+              (forward-char))
+            (cond
+             ((eq (point) e)
+              b)
+             (t
+              ;; skip '=' at point
+              (goto-char (my-skip-white-space (1+ (point)) 1))
+              (point))))
+          (cond
+           ((eq (char-before e) 59) ; ";"
+            (my-skip-white-space (1- e) -1))
+           (t
+            e)))))
+
+(define-key evil-outer-text-objects-map "v" #'my-evil-a-statement)
+(define-key evil-inner-text-objects-map "v" #'my-evil-inner-statement)
+
+#+end_src
+
+*** 定义自己的文本对象i 代表引号(单 双引号)内的对象
+
+#+begin_src emacs-lisp
+(defun my-text-obj-similar-font (count beg end type inclusive)
+  "Get maximum range of single or double quote text object.
+If INCLUSIVE is t, the text object is inclusive."
+  (ignore count beg end type)
+  (let* ((range (my-create-range inclusive)))
+    (evil-range (car range) (cdr range) inclusive)))
+
+(evil-define-text-object my-evil-a-single-or-double-quote (count &optional beg end type)
+  "Select a single-quoted expression."
+  :extend-selection t
+  (my-text-obj-similar-font count beg end type t))
+
+(evil-define-text-object my-evil-inner-single-or-double-quote (count &optional beg end type)
+  "Select 'inner' single-quoted expression."
+  :extend-selection nil
+  (my-text-obj-similar-font count beg end type nil))
+
+(define-key evil-outer-text-objects-map "i" #'my-evil-a-single-or-double-quote)
+(define-key evil-inner-text-objects-map "i" #'my-evil-inner-single-or-double-quote)
+
+#+end_src
+
+*** 定义自己的文本对象g 代表括号内的对象
+
+#+begin_src emacs-lisp
+(defun my-evil-paren-range (count beg end type inclusive)
+  "Get minimum range of paren text object.
+If INCLUSIVE is t, the text object is inclusive."
+  (let* ((parens '("()" "[]" "{}" "<>"))
+         range
+         found-range)
+    (dolist (p parens)
+      (condition-case nil
+          (setq range (evil-select-paren (aref p 0) (aref p 1) beg end type count inclusive))
+        (error nil))
+      (when range
+        (cond
+         (found-range
+          (when (< (- (nth 1 range) (nth 0 range))
+                   (- (nth 1 found-range) (nth 0 found-range)))
+            (setf (nth 0 found-range) (nth 0 range))
+            (setf (nth 1 found-range) (nth 1 range))))
+         (t
+          (setq found-range range)))))
+    found-range))
+
+(evil-define-text-object my-evil-a-paren (count &optional beg end type)
+  "Select a paren."
+  :extend-selection t
+  (my-evil-paren-range count beg end type t))
+
+(evil-define-text-object my-evil-inner-paren (count &optional beg end type)
+  "Select 'inner' paren."
+  :extend-selection nil
+  (my-evil-paren-range count beg end type nil))
+
+(define-key evil-inner-text-objects-map "g" #'my-evil-inner-paren)
+(define-key evil-outer-text-objects-map "g" #'my-evil-a-paren)
+
+#+end_src
+
+*** 根据evil的模式来改变modeline颜色 
+
+#+begin_src emacs-lisp
+
+(defconst my-default-color (cons (face-background 'mode-line)
+                                 (face-foreground 'mode-line)))
+(defun my-show-evil-state ()
+  "Change mode line color to notify user evil current state."
+  (let* ((color (cond ((minibufferp) my-default-color)
+                      ((evil-insert-state-p) '("#e80000" . "#ffffff"))
+                      ((evil-emacs-state-p)  '("#444488" . "#ffffff"))
+                      ((buffer-modified-p)   '("#006fa0" . "#ffffff"))
+                      (t my-default-color))))
+    (set-face-background 'mode-line (car color))
+    (set-face-foreground 'mode-line (cdr color))))
+(add-hook 'post-command-hook #'my-show-evil-state)
+#+end_src
+
+*** EX命令设置
+    主要针对evil的ex命令使用   需要自行调用
+    #+begin_src emacs-lisp
+(defun my-evil-ex-command-completion-at-point ()
+  "Completion function for ex command history."
+  (let* ((start (or (get-text-property 0 'ex-index evil-ex-cmd)
+                    (point)))
+         (end (point)))
+    (list start end evil-ex-history :exclusive 'no)))
+
+(defun my-search-evil-ex-history ()
+  "Search `evil-ex-history' to complete ex command."
+  (interactive)
+  (let (after-change-functions
+        (completion-styles '(substring))
+        (completion-at-point-functions '(my-evil-ex-command-completion-at-point)))
+    (evil-ex-update)
+    (completion-at-point)
+    (remove-text-properties (minibuffer-prompt-end) (point-max) '(face nil evil))))
+
+(defun my-optimize-evil ()
+  "I prefer mixed Emacs&Vi style.  Run this function in \"~/.custom.el\"."
+  (with-eval-after-load 'evil
+    ;; TAB key still triggers `evil-ex-completion'.
+    (define-key evil-ex-completion-map (kbd "C-d") 'delete-char)
+    ;; use `my-search-evil-ex-history' to replace `evil-ex-command-window'
+    (define-key evil-ex-completion-map (kbd "C-f") 'forward-char)
+    (define-key evil-ex-completion-map (kbd "C-s") 'evil-ex-command-window)
+    ;; I use Emacs in terminal which may not support keybinding "C-r" or "M-n"
+    (define-key evil-ex-completion-map (kbd "C-r") 'my-search-evil-ex-history)
+    (define-key evil-ex-completion-map (kbd "M-n") 'my-search-evil-ex-history)))
+
+#+end_src
+
+*** 可视模式
+    可视模式下选择的内容不添加到evil register中
+    #+begin_src emacs-lisp
+(defvar my-evil-enable-visual-update-x-selection nil
+  "Automatically copy the selected text into evil register. I'm not sure this is good idea.")
+(defun my-evil-visual-update-x-selection-hack (orig-func &rest args)
+  (when my-evil-enable-visual-update-x-selection
+    (apply orig-func args)))
+(advice-add 'evil-visual-update-x-selection :around #'my-evil-visual-update-x-selection-hack)
+#+end_src
+
+*** evil-declare-key
+   使用evil-declare-key，可以非常方便地定义某个模式下evil的按键
+   leader keys started with upper cased character or 'g' or special character except "=" and "-"
+   #+begin_src emacs-lisp
+;; 如下配置，在org-mode中normal模式下，按TAB键可以直接执行org-cycle命令，去展开或折叠某个heading
+(evil-declare-key 'normal org-mode-map
+  "gh" 'outline-up-heading
+  "$" 'org-end-of-line ; smarter behavior on headlines etc.
+  "^" 'org-beginning-of-line ; ditto
+  "<" (lambda () (interactive) (org-demote-or-promote 1)) ; out-dent
+  ">" 'org-demote-or-promote ; indent
+  (kbd "TAB") 'org-cycle)
+
+(evil-declare-key 'normal markdown-mode-map
+  "gh" 'outline-up-heading
+  (kbd "TAB") 'markdown-cycle)
+#+end_src
+
+** evil-surround
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-surround)
+#+end_src
+*** 基本设置
+   evil-surround 类于vim-surround，可以在evil模式下方便地操作匹配的符号
+   evil-surround快捷键说明
+       cs for change surround 修改包围字符   cs"'
+       ds for delete surround 删除包围字符
+       ys for your surround 添加包围字符     ysiW"
+   下面的配置为org-mode和emacs-lisp-mode分别加入一些匹配的符号，以便于surround可以操纵它
+#+begin_src emacs-lisp
+(my-run-with-idle-timer 2 #'global-evil-surround-mode)
+(with-eval-after-load 'evil-surround
+  (defun evil-surround-prog-mode-hook-setup ()
+    "Set up surround shortcuts."
+    (cond
+     ((memq major-mode '(sh-mode))
+      (push '(?$ . ("$(" . ")")) evil-surround-pairs-alist))
+     (t
+      (push '(?$ . ("${" . "}")) evil-surround-pairs-alist)))
+
+    (when (memq major-mode '(org-mode))
+      (push '(?\[ . ("[[" . "]]")) evil-surround-pairs-alist)
+      (push '(?= . ("=" . "=")) evil-surround-pairs-alist))
+
+    (when (memq major-mode '(emacs-lisp-mode))
+      (push '(?\( . ("( " . ")")) evil-surround-pairs-alist)
+      (push '(?` . ("`" . "'")) evil-surround-pairs-alist))
+
+    ;; generic
+    (push '(?/ . ("/" . "/")) evil-surround-pairs-alist))
+  (add-hook 'prog-mode-hook 'evil-surround-prog-mode-hook-setup))
+
+#+end_src
+
+** evil-visualstar
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-visualstar)
+#+end_src
+*** 基本设置
+   选择一段文本,按#(上)或者*(下)搜索
+#+begin_src emacs-lisp
+(setq evil-visualstar/persistent t)
+(my-run-with-idle-timer 2 #'global-evil-visualstar-mode)
+#+end_src
+
+   设置文本查看格式
+#+begin_src emacs-lisp
+(advice-add 'evil-visualstar/begin-search :after #'my-cc-isearch-string)
+#+end_src
+
+** find-file-in-project
+   ffip-diff-mode时的evil按键设置
+#+begin_src emacs-lisp
+(defun ffip-diff-mode-hook-setup ()
+  (evil-local-set-key 'normal "q" (lambda () (interactive) (quit-window t)))
+  (evil-local-set-key 'normal (kbd "RET") 'ffip-diff-find-file)
+  ;; "C-c C-a" is binding to `diff-apply-hunk' in `diff-mode'
+  (evil-local-set-key 'normal "u" 'diff-undo)
+  (evil-local-set-key 'normal "a" 'ffip-diff-apply-hunk)
+  (evil-local-set-key 'normal "o" 'ffip-diff-find-file))
+(add-hook 'ffip-diff-mode-hook 'ffip-diff-mode-hook-setup)
+#+end_src
+
+** evil-escape
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-escape)
+#+end_src
+*** 设置
+   设置退出插入模式的按键  disable evil-escape when input method is on
+   #+begin_src emacs-lisp
+;; (global-set-key (kbd "C-c C-g") 'evil-escape) ;; 可这样设置全局快捷键
+(setq-default evil-escape-delay 0.3)
+(setq evil-escape-excluded-major-modes '(dired-mode))
+(setq-default evil-escape-key-sequence "kj")
+(evil-escape-mode 1)
+#+end_src
+
+** evil-mark-replace
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-mark-replace)
+#+end_src
+   更改函数内某个符号名
+   #+begin_src emacs-lisp
+(defvar my-web-mode-element-rename-previous-tag nil
+  "Used by `my-rename-thing-at-point'.")
+
+(defun my-rename-thing-at-point (&optional n)
+  "Rename thing at point.
+If N > 0 and in html, repeating previous tag name operation.
+If N > 0 and in js, only occurrences in current N lines are renamed."
+  (interactive "P")
+  (cond
+   ((eq major-mode 'web-mode)
+     (unless (and n my-web-mode-element-rename-previous-tag)
+       (setq my-web-mode-element-rename-previous-tag (read-string "New tag name? ")))
+     (web-mode-element-rename my-web-mode-element-rename-previous-tag))
+
+   ((derived-mode-p 'js2-mode)
+    ;; use `js2-mode' parser, much smarter and works in any scope
+    (js2hl-rename-thing-at-point n))
+
+   (t
+    ;; simple string search/replace in function scope
+    (evilmr-replace-in-defun))))
+
+#+end_src
+    
+** evil-search
+
+#+begin_src emacs-lisp
+(advice-add 'evil-search-incrementally :after #'my-cc-isearch-string)
+(advice-add 'evil-search-word :after #'my-cc-isearch-string)
+#+end_src
+
+** evil-nerd-commenter
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-nerd-commenter)
+#+end_src
+*** 设置
+   快速进行注释，不依赖于evil
+#+begin_src emacs-lisp
+(my-run-with-idle-timer 2 #'evilnc-default-hotkeys)
+(define-key evil-motion-state-map "gc" 'evilnc-comment-operator) ; same as doom-emacs
+(define-key evil-motion-state-map "gb" 'evilnc-copy-and-comment-operator)
+(define-key evil-motion-state-map "gy" 'evilnc-yank-and-comment-operator)
+#+end_src
+
+   注释段落
+   #+begin_src emacs-lisp
+(defun my-current-line-html-p (paragraph-region)
+  "Is current line html?"
+  (let* ((line (buffer-substring-no-properties (line-beginning-position)
+                                               (line-end-position)))
+         (re (format "^[ \t]*\\(%s\\)?[ \t]*</?[a-zA-Z]+"
+                     (regexp-quote (evilnc-html-comment-start)))))
+    ;; current paragraph does contain html tag
+    (if (and (>= (point) (car paragraph-region))
+             (string-match re line))
+        t)))
+
+(defun my-evilnc-comment-or-uncomment-paragraphs (&optional num)
+  "Comment or uncomment NUM paragraphs which might contain html tags."
+  (interactive "p")
+  (my-require 'evil-nerd-commenter)
+  (let* ((paragraph-region (evilnc--get-one-paragraph-region))
+         (html-p (ignore-errors
+                   (or (save-excursion
+                         (sgml-skip-tag-backward 1)
+                         (my-current-line-html-p paragraph-region))
+                       (save-excursion
+                         (sgml-skip-tag-forward 1)
+                         (my-current-line-html-p paragraph-region))))))
+    (if html-p (evilnc-comment-or-uncomment-html-paragraphs num)
+      (evilnc-comment-or-uncomment-paragraphs num))))
+
+#+end_src
+
+** evil-matchit
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-matchit)
+#+end_src
+*** 设置
+   按%进行匹配跳转
+   #+begin_src emacs-lisp
+(my-run-with-idle-timer 2 #'global-evil-matchit-mode)
+#+end_src
+
+** evil-exchange
+*** 安装
+   类vim-exchange，可以方便地交换两处字符  按两次gx即可 gX取消
+#+begin_src emacs-lisp
+(my-package-install 'evil-exchange)
+#+end_src
+*** 设置
+#+begin_src emacs-lisp
+;; (setq evil-exchange-key (kbd "zx"))   ;; 更改默认的绑定按键
+(my-run-with-idle-timer 4 #'evil-exchange-install)
+#+end_src
+    
+** evil-find-char-pinyin-mode
+   Evil’s f/F/t/T command can search PinYin ,
+*** 安装
+#+begin_src emacs-lisp
+(my-package-install 'evil-find-char-pinyin)
+#+end_src
+#+begin_src emacs-lisp
+(my-run-with-idle-timer 4 #'evil-find-char-pinyin-mode)
+#+end_src
+
+* 中文输入
+** pyim
+#+begin_src emacs-lisp
+(my-package-install 'pyim)
+(my-package-install 'pyim-basedict)
+(defun my-toggle-input-method ()
+  "When input method is on, goto `evil-insert-state'."
+  (interactive)
+  ;; load IME when needed, less memory footprint
+  (my-require 'pyim)
+  ;; some guys don't use evil-mode at all
+  (cond
+   ((and (boundp 'evil-mode) evil-mode)
+    ;; evil-mode
+    (cond
+     ((eq evil-state 'insert)
+      (toggle-input-method))
+     (t
+      (evil-insert-state)
+      (unless current-input-method
+        (toggle-input-method))))
+    (cond
+     (current-input-method
+      ;; evil-escape and pyim may conflict
+      ;; @see https://github.com/redguardtoo/emacs.d/issues/629
+      (evil-escape-mode -1)
+      (message "IME on!"))
+     (t
+      (evil-escape-mode 1)
+      (message "IME off!"))))
+   (t
+    ;; NOT evil-mode
+    (toggle-input-method))))
+
+(defun my-evil-insert-state-hack (orig-func &rest args)
+  "Notify user IME status."
+  (apply orig-func args)
+  (if current-input-method (message "IME on!")))
+(advice-add 'evil-insert-state :around #'my-evil-insert-state-hack)
+
+(global-set-key (kbd "C-\\") 'my-toggle-input-method)
+
+;; pyim相关
+(defvar my-pyim-directory "~/.eim"
+  "The directory containing pyim dictionaries.")
+
+(with-eval-after-load 'pyim
+  (defun my-pyim-clear-and-off ()
+    "Clear and off."
+    (interactive)
+    (pyim-quit-clear)
+    (my-toggle-input-method))
+
+  ;; press "/" to turn off pyim
+  (define-key pyim-mode-map (kbd "/") 'my-pyim-clear-and-off)
+
+  ;; use western punctuation
+  (setq pyim-punctuation-dict nil)
+  (setq default-input-method "pyim")
+
+  (cond
+   (t
+    (setq pyim-pinyin-fuzzy-alist
+          '(("en" "eng")
+            ("in" "ing")))
+
+    ;; Dictionaries:
+    ;;   pyim-greatdict is not recommended. It has too many useless words and slows down pyim.
+    ;;
+    ;;   Download pyim-bigdict,
+    ;;   curl -L http://tumashu.github.io/pyim-bigdict/pyim-bigdict.pyim.gz | zcat > ~/.eim/pyim-bigdict.pyim
+    ;;
+    ;;   Download pyim-tsinghua (recommended),
+    ;;   curl -L https://raw.githubusercontent.com/redguardtoo/pyim-tsinghua-dict/master/pyim-tsinghua-dict.pyim > ~/.eim/pyim-tsinghua-dict.pyim
+
+    ;; don's use shortcode2word
+    (setq pyim-enable-shortcode nil)
+
+    ;; use memory efficient pyim engine for pinyin IME
+    (my-require 'pyim-dregcache)
+    (setq pyim-dcache-backend 'pyim-dregcache)
+
+    ;; automatically load pinyin dictionaries "*.pyim" under "~/.eim/"
+    (let* ((files (and (file-exists-p my-pyim-directory)
+                       (directory-files-recursively my-pyim-directory "\.pyim$")))
+           disable-basedict)
+      (when (and files (> (length files) 0))
+        (setq pyim-dicts
+              (mapcar (lambda (f)
+                        (list :name (file-name-base f) :file f))
+                      files))
+        (dolist (f files)
+          (when (member (file-name-base f) '("pyim-another-dict"
+                                             "pyim-tsinghua-dict.pyim"
+                                             "pyim-bigdict"
+                                             "pyim-greatdict"))
+            (setq disable-basedict t))))
+      (unless disable-basedict (pyim-basedict-enable)))))
+
+  ;; don't use tooltip
+  (setq pyim-use-tooltip 'popup))
+#+end_src
+* 临时
+* 补全
+** company
+#+begin_src emacs-lisp :tangle no
+(my-package-install 'company)
+;; (global-company-mode 1)
+(add-hook 'after-init-hook 'global-company-mode)
+
+(defvar my-company-select-by-number-p t
+  "User can press number key to select company candidate.")
+
+(defvar my-company-zero-key-for-filter nil
+  "If t, pressing 0 calls `company-filter-candidates' per company's status.
+If `my-company-select-by-number-p' is nil, this flag is ignored. ")
+
+(with-eval-after-load 'company
+  (defun my-company-number ()
+    "Forward to `company-complete-number'.
+Unless the number is potentially part of the candidate.
+In that case, insert the number."
+    (interactive)
+    (let* ((k (this-command-keys))
+           (re (concat "^" company-prefix k))
+           (n (if (equal k "0") 10 (string-to-number k))))
+      (cond
+       ((or (cl-find-if (lambda (s) (string-match re s)) company-candidates)
+            (> n (length company-candidates))
+            (looking-back "[0-9]" (line-beginning-position)))
+        (self-insert-command 1))
+
+       ((and (eq n 10) my-company-zero-key-for-filter)
+        (company-filter-candidates))
+
+       (t
+        (company-complete-number n)))))
+
+  (when my-company-select-by-number-p
+    (let ((map company-active-map))
+      (mapc
+       (lambda (x)
+         (define-key map (format "%d" x) 'my-company-number))
+       (number-sequence 0 9))))
+
+
+  (setq company-idle-delay 0.2
+        company-show-numbers t)
+
+  ;; NOT to load company-mode for certain major modes.
+  (setq company-global-modes
+        '(not
+          eshell-mode
+          comint-mode
+          erc-mode
+          gud-mode
+          rcirc-mode
+          minibuffer-inactive-mode)))
+#+end_src
+
+** 括号自动补全
+#+begin_src emacs-lisp
+(electric-pair-mode t)
+#+end_src
+** vertico  增强minibuffer
+#+begin_src emacs-lisp
+(my-package-install 'vertico)
+(vertico-mode t)
+#+end_src
+** orderless  模糊搜索
+#+begin_src emacs-lisp
+(my-package-install 'orderless)
+(setq completion-styles '(orderless))
+#+end_src
+** marginalia  增强minibuffer中的注释信息
+#+begin_src emacs-lisp
+(my-package-install 'marginalia)
+(marginalia-mode t)
+#+end_src
+** consult  增强文件内搜索和跳转函数定义
+#+begin_src emacs-lisp
+(my-package-install 'consult)
+(global-set-key (kbd "C-s") 'consult-line)
+(defun yu-paste()
+  (interactive)
+  (insert (consult--read-from-kill-ring)))
+;; 关闭最近打开文件时的预览功能
+(with-eval-after-load 'consult
+  (consult-customize consult-recent-file :preview-key nil))
+#+end_src
+* 跳转
+** 安装
+#+begin_src emacs-lisp
+(my-package-install 'avy)
+(my-package-install 'ace-pinyin)
+#+end_src
+** 配置
+#+begin_src emacs-lisp
+(autoload 'ace-pinyin-jump-char-2 "ace-pinyin" "" t)
+#+end_src
+* Org相关
+** 功能设置
+*** 解决加载慢 
+#+begin_src emacs-lisp
+(setq org-modules-loaded t)
+#+end_src
+*** org tempo
+    开启<s补全代码
+#+begin_src emacs-lisp
+(require 'org-tempo)
+#+end_src
+
+    禁用左尖括号;这里需要先打开 electric-pair-mode 才能继续设置
+#+begin_src emacs-lisp
+(setq electric-pair-inhibit-predicate
+      `(lambda (c)
+	 (if (char-equal c ?\<) t (,electric-pair-inhibit-predicate c))))
+
+(add-hook 'org-mode-hook
+	  (lambda ()
+	    (setq-local electric-pair-inhibit-predicate
+			`(lambda (c)
+			   (if (char-equal c ?\<) t (,electric-pair-inhibit-predicate c))))))
+#+end_src
+
+*** 关闭导出 html 时的validation
+#+begin_src emacs-lisp
+(setq org-html-validation-link nil)
+#+end_src
+** 自定义函数
+*** org拖拽功能
+
+#+begin_src emacs-lisp
+;; (defun yu-dnd-handler (url _action)
+;;   (let* ((filename (file-name-nondirectory (decode-coding-string (url-unhex-string url) 'utf-8))) ;; 处理中文字符
+;;          (filepath (concat
+;;                    (cond
+;;                     ((equal (file-name-extension url) "html") "./tmp/html/")
+;;                     (t "./tmp/misc/"))
+;;                    filename)))
+;;     (url-copy-file url filepath)
+;;     (insert
+;;      (if (equal (file-name-extension url) "html")
+;; 	     (concat "[[file:" filepath "]["(substring filename 0 -5)"]]")
+;; 	   (concat "[[file:" filepath "]]")))))
+;; (setq dnd-protocol-alist
+;;       '(("" . yu-dnd-handler)))
+#+end_src
+
+*** 仅显示当前subtree中的图片
+
+#+begin_src emacs-lisp
+(defun yu-org-display-subtree-inline-images ()
+  "Toggle the display of inline images.
+INCLUDE-LINKED is passed to `org-display-inline-images'."
+  (interactive)
+  (save-excursion
+    (save-restriction
+      (org-narrow-to-subtree)
+      (let* ((beg (point-min))
+             (end (point-max))
+             (image-overlays (cl-intersection
+                              org-inline-image-overlays
+                              (overlays-in beg end))))
+        (if image-overlays
+            (progn
+              (org-remove-inline-images)
+              (message "Inline image display turned off"))
+          (org-display-inline-images t t beg end)
+          (setq image-overlays (cl-intersection
+                                org-inline-image-overlays
+                                (overlays-in beg end)))
+          (if (and (org-called-interactively-p) image-overlays)
+              (message "%d images displayed inline"
+                       (length image-overlays))))))))
+#+end_src
+
+* 项目
+** Git
+*** vc-msg 
+#+begin_src emacs-lisp
+(my-package-install 'vc-msg)
+(autoload 'vc-msg-show "vc-msg" "")
+#+end_src
+** Project
+  project-find-file  是emacs内置的一个函数
+* 快捷键
+** 基础
+   设置Eval快捷键
+#+begin_src emacs-lisp
+(global-set-key (kbd "<f5>") 'eval-defun)
+#+end_src
+
+   设置C-h
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-h") 'delete-backward-char)
+(global-set-key (kbd "M-m") 'help-command)
+(define-key isearch-mode-map "\C-h" 'isearch-delete-char)
+#+end_src
+
+   快速打开配置文件
+#+begin_src emacs-lisp
+(defun open-init-file()
+  (interactive)
+  (find-file "~/.emacs.d/config.org"))
+(global-set-key (kbd "<f12>") 'open-init-file)
+#+end_src
+
+** General
+   general general提供了类leader键的方法，使用leader键可以减少按Ctrl和Alt等控制键的次数；不依赖于evil，可直接为Emacs配置快捷键
+#+begin_src emacs-lisp
+(my-package-install 'general)
+(general-evil-setup t)
+#+end_src
+
+   可针对不同的主模式设置不同的快捷键
+#+begin_src emacs-lisp
+(general-create-definer my-org-leader-def
+  :prefix ";"
+  :non-normal-prefix "M-;"
+  :states '(normal motion visual)
+  :keymaps 'org-mode-map)
+
+(my-org-leader-def
+  "f" 'my-navigate-in-pdf
+  "g" 'my-open-pdf-goto-page)
+
+#+end_src
+
+** 逗号
+
+#+begin_src emacs-lisp
+(general-create-definer my-comma-leader-def
+  :prefix ","
+  :states '(normal visual))
+
+(my-comma-leader-def
+  "wf" 'popup-which-function)
+
+#+end_src
+    
+** 分号
+
+#+begin_src emacs-lisp
+(general-create-definer my-semicolon-leader-def
+  :prefix ";"
+  :states '(normal visual))
+(my-semicolon-leader-def
+  "gq" 'w3m-stackoverflow-search)
+#+end_src
+
+** 空格
+#+begin_src emacs-lisp
+(general-create-definer my-space-leader-def
+  :prefix "SPC"
+  :states '(normal visual))
+(my-space-leader-def
+  "SPC" 'ace-pinyin-jump-char-2
+  ;; "dp" 'citre-peek
+  ;; 项目相关
+  "gf" 'my-counsel-git-find-file ; find file
+  "gg" 'my-counsel-git-grep ; quickest grep should be easy to press
+  "pf" 'find-file-in-project
+  "jj" 'find-file-in-project-at-point
+  "kk" 'find-file-in-project-by-selected
+  "pc" 'find-file-in-current-directory
+  "pg" 'my-multi-purpose-grep ;;find some content in project file
+  "ps" 'my-multi-purpose-grep ;;find some content in project file
+  "dd" 'counsel-etags-grep-current-directory
+  ;; 文件相关
+  "rr" 'yu-last-closed-file-reopen
+  "ff" 'find-file
+  "fj" 'consult-imenu
+  "fr" 'consult-recent-file
+  ","  'evilnc-comment-operator
+  "ss" 'consult-line
+  "sp" 'swiper-thing-at-point
+  "wf" 'popup-which-function
+  "bf" 'beginning-of-defun
+  "ef" 'end-of-defun
+  "bu" 'backward-up-list
+  "cl" 'evilnc-comment-or-uncomment-lines;;注释当前行
+  "ci" 'evilnc-quick-comment-or-uncomment-to-the-line;;注释一个区域
+  "cc" 'evilnc-copy-and-comment-lines;;注释并拷贝当前行
+  "cp" 'my-evilnc-comment-or-uncomment-paragraphs
+  "ic" 'my-imenu-comments
+  ;; "ts" 'evilmr-tag-selected-region ;; recommended
+  "rt" 'counsel-etags-recent-tag
+  "ft" 'counsel-etags-find-tag
+  ;;buffer操作
+  "bb" 'ido-switch-buffer
+  "br" 'evilmr-replace-in-buffer
+  "bx" 'kill-buffer
+  "ba" 'mark-whole-buffer
+  "bk" 'buf-move-up
+  "bj" 'buf-move-down
+  "bh" 'buf-move-left
+  "bl" 'buf-move-right
+  "xb" 'kill-buffer-and-window ;; "k" is preserved to replace "c-g"
+  "fs" 'save-buffer
+  "cw" 'whitespace-cleanup ;;清除文件中多余的空格
+  "TAB" (lambda () (interactive) (switch-to-buffer nil)) ; 切换上一个buffer
+  "em" 'shellcop-erase-buffer
+  "eb" 'eval-buffer
+  "ee" 'eval-expression
+  "cf" 'counsel-grep ; grep current buffer
+  "gg" 'my-counsel-git-grep ; quickest grep should be easy to press
+  "ls" 'highlight-symbol
+  "lq" 'highlight-symbol-query-replace
+  "ln" 'highlight-symbol-nav-mode ; use m-n/m-p to navigation between symbols
+  ;; 文本操作
+  ;; "hh" 'cliphist-paste-item
+  ;; "yu" 'cliphist-select-item
+  "hh" 'yu-paste
+  "yx" 'copy-to-x-clipboard ; used frequently
+  "xp" 'paste-from-x-clipboard ; used frequently
+  "hx" 'kill-ring-to-clipboard
+  "fn" 'cp-filename-of-current-buffer
+  ;; 开关选项配置
+  "tl" 'toggle-truncate-lines
+  "ts" 'aweshell-dedicated-toggle
+  ;; Org 相关配置
+  "oo" 'org-open-at-point-and-delete-other-windows
+  "oe" 'org-html-export-to-html
+  "os" '(lambda ()
+          (interactive)
+          (my-require 'org)
+          (counsel-org-agenda-headlines))
+  "oa" 'org-agenda
+  "ov" 'yu-org-display-subtree-inline-images
+  ;; 其他
+  "mm" 'man
+  "ms" 'helpful-at-point
+  "zz" 'my-switch-to-shell
+  "sh" 'my-select-from-search-text-history
+  "vv" 'vc-msg-show
+  ;;未知快捷键
+  "ac" 'aya-create
+  "bs" '(lambda () (interactive) (goto-char (car (my-create-range t))))
+  "es" '(lambda () (interactive) (goto-char (1- (cdr (my-create-range t)))))
+  "da" 'diff-lisp-mark-selected-text-as-a
+  "db" 'diff-lisp-diff-a-and-b
+  "gf" 'counsel-git ; find file
+  "dj" 'dired-jump ;; open the dired from current file
+  "kn" 'find-file-with-similar-name ; ffip v5.3.1
+  "fd" 'find-directory-in-project-by-selected
+  "ti" 'fastdef-insert
+  "th" 'fastdef-insert-from-history
+  "rv" 'my-rename-thing-at-point
+  "gd" 'ffip-show-diff-by-description ;find-file-in-project 5.3.0+
+  "gt" 'my-evil-goto-definition ; "gt" is occupied by evil
+  "gl" 'my-git-log-trace-definition ; find history of a function or range
+  "tm" 'my-git-timemachine
+  ;; toggle overview,  @see http://emacs.wordpress.com/2007/01/16/quick-and-dirty-code-folding/
+  "c<" 'org-do-promote ; `c-c c-<'
+  "c>" 'org-do-demote ; `c-c c->'
+  "cam" 'org-tags-view ; `c-c a m': search items in org-file-apps by tag
+  "cxi" 'org-clock-in ; `c-c c-x c-i'
+  "cxo" 'org-clock-out ; `c-c c-x c-o'
+  "cxr" 'org-clock-report ; `c-c c-x c-r'
+  "di" 'evilmi-delete-items
+  "si" 'evilmi-select-items
+  "jb" 'my-beautfiy-code
+  "uu" 'my-transient-winner-undo
+  "xs" 'ffip-save-ivy-last
+;;  "fr" 'ivy-resume
+  "fb" '(lambda ()
+          (interactive)
+          (my-require 'wucuo)
+          (let* ((wucuo-flyspell-start-mode "normal"))
+            (wucuo-spell-check-internal)))
+  "fe" 'flyspell-goto-next-error
+  "fa" 'flyspell-auto-correct-word
+  "lb" 'langtool-check-buffer
+  "ne" 'lazyflymake-goto-next-error
+  "otl" 'org-toggle-link-display
+  "ar" 'align-regexp
+  "vf" 'vc-rename-file-and-buffer
+  "vc" 'vc-copy-file-and-rename-buffer
+  "xv" 'vc-next-action ; 'c-x v v' in original
+  "va" 'git-add-current-file
+  "vk" 'git-checkout-current-file
+  "vg" 'vc-annotate ; 'c-x v g' in original
+  "v=" 'git-gutter:popup-hunk
+  "ih" 'my-goto-git-gutter ; use ivy-mode
+  "ir" 'ivy-resume
+  ;; 窗口操作
+  "wr" 'rotate-windows
+  "wx" 'delete-window
+  "ws" 'delete-other-windows
+  ;; "wf" 'my-toggle-full-window
+  "wj" 'split-window-vertically
+  "wl" 'split-window-horizontally
+  "ww" 'narrow-or-widen-dwim ;单独显示一个函数
+  "0" 'winum-select-window-0-or-10
+  "1" 'winum-select-window-1
+  "2" 'winum-select-window-2
+  "3" 'winum-select-window-3
+  "4" 'winum-select-window-4
+  "5" 'winum-select-window-5
+  "6" 'winum-select-window-6
+  "7" 'winum-select-window-7
+  "8" 'winum-select-window-8
+  "9" 'winum-select-window-9
+  )
+
+#+end_src
+    
+* lsp-bridge
+#+begin_src emacs-lisp
+(my-package-install  'posframe)
+(my-package-install  'markdown-mode)
+(my-package-install  'yasnippet)
+
+(require 'yasnippet)
+(yas-global-mode 1)
+(require 'lsp-bridge)
+(global-lsp-bridge-mode) 
+;; (setq lsp-bridge-enable-auto-format-code t)
+#+end_src
