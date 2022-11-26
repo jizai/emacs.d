@@ -7,13 +7,13 @@
 *** 插件源设置
 #+begin_src emacs-lisp
 (setq package-archives '(
-    ("melpa" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/melpa/") 
+    ("melpa" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/melpa/")
     ("gnu" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/gnu/")
     ("org" . "http://mirrors.tuna.tsinghua.edu.cn/elpa/org/")))
 #+end_src
 
 *** 安装插件
-    如果require一个包,但是这个包不存在,那么就会报错,后面的代码就不会执行了. 这个函数用来替换原来的require函数,出错之后只会报警告 
+    如果require一个包,但是这个包不存在,那么就会报错,后面的代码就不会执行了. 这个函数用来替换原来的require函数,出错之后只会报警告
 #+begin_src emacs-lisp
 (defun my-require (feature)
   "Make sure FEATURE is required."
@@ -46,6 +46,7 @@
 #+end_src
 
 *** 窗口缩放
+
 #+begin_src emacs-lisp
 (defun narrow-to-region-indirect-buffer-maybe (start end use-indirect-buffer)
   "Indirect buffer could multiple widen on same file."
@@ -110,6 +111,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
    (t (error "Please select a region to narrow to"))))
 
 #+end_src
+
 ** 把玩插件设置
 
 #+begin_src emacs-lisp
@@ -122,43 +124,107 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 #+end_src
 
 ** 外观
+*** 杂项
+    #+begin_src emacs-lisp
+  ;; (linum-mode 1)
+  (scroll-bar-mode -1)
+  (tool-bar-mode -1)
+  (horizontal-scroll-bar-mode -1)
+  (menu-bar-mode -1)
+  (setq inhibit-startup-screen t)
+
+
+    #+end_src
+
+*** minibuffer 位置修改
+
+    #+begin_src emacs-lisp :tangle no
+(require 'vertico-posframe)
+(vertico-posframe-mode 1)
+
+    #+end_src
+
+*** 中英字体设置
+
 #+begin_src emacs-lisp
-;; (linum-mode 1)
-(scroll-bar-mode -1)
-(tool-bar-mode -1)
-(horizontal-scroll-bar-mode -1)
-(menu-bar-mode -1)
-(setq inhibit-startup-screen t)
 
-;; 设置英文字体  "Bookerly" "JetBrainsMono Nerd Font Mono" "Gintronic" "Cascadia Code PL"
-(set-face-attribute 'default nil :font "JetBrainsMono Nerd Font Mono")
-;; 设置中文字体  "FZYingXueS-R-GB"  "Hiragino Sans GB"
-(set-fontset-font t '(#x4e00 . #x9fff) "Hiragino Sans GB")
-;; 设置字体大小   值在1/10 pt，所以100会给你10 pt
-(set-face-attribute 'default nil :height 150)
+  ;; 设置英文字体  "Bookerly" "JetBrainsMono Nerd Font Mono" "Gintronic" "Cascadia Code PL"
+  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font Mono")
 
-;;高亮加粗当前行
-(global-hl-line-mode 1)
-;; (set-face-attribute 'hl-line nil :inherit nil  :bold t :background nil :foreground nil)
+  ;; 设置中文字体  "FZYingXueS-R-GB"  "Hiragino Sans GB"
+  (set-fontset-font t '(#x4e00 . #x9fff) "PingFang SC")
+  ;; (set-fontset-font t '(#x4e00 . #x9fff) "Hiragino Sans GB")
+  ;; (set-fontset-font t '(#x4e00 . #x9fff) "FZPingXianYaSongS\-R\-GB")
 
-;;设置配色方案
-(my-package-install 'modus-themes)
-(setq modus-themes-bold-constructs t)
-(setq modus-themes-syntax '(faint alt-syntax green-strings yellow-comments))
-(setq modus-themes-hl-line '(underline accented))
-(load-theme 'modus-operandi t)
+  ;; 设置字体大小   值在1/10 pt，所以100会给你10 pt
+  (set-face-attribute 'default nil :height 150)
 
-;; 光标提示
-(my-package-install  'beacon)
-(beacon-mode 1)
-(setq beacon-color "#FF4500")
+  ;; 为org-mode、latex等设置字体（适合学术写作的字体，跟new time roman类似）：
+  ;; (add-hook 'text-mode-hook
+  ;;     (lambda ()
+  ;; 	(setq buffer-face-mode-face '(:family "Georgia Pro"))
+  ;; 	(buffer-face-mode)))
+
+
 #+end_src
+
+*** emoji字体设置
+    #+begin_src emacs-lisp :tangle no
+(progn
+  ;; set font for emoji (if before emacs 28, should come after setting symbols. emacs 28 now has 'emoji . before, emoji is part of 'symbol)
+  (set-fontset-font
+   t
+   (if (version< emacs-version "28.1")
+       '(#x1f300 . #x1fad0)
+     'emoji
+     )
+   (cond
+    ((member "Apple Color Emoji" (font-family-list)) "Apple Color Emoji")
+    ((member "Noto Color Emoji" (font-family-list)) "Noto Color Emoji")
+    ((member "Noto Emoji" (font-family-list)) "Noto Emoji")
+    ((member "Segoe UI Emoji" (font-family-list)) "Segoe UI Emoji")
+    ((member "Symbola" (font-family-list)) "Symbola"))))
+    #+end_src
+
+*** 主题与配色
+
+    #+begin_src emacs-lisp
+  ;;高亮加粗当前行
+  (global-hl-line-mode 1)
+  ;; (set-face-attribute 'hl-line nil :inherit nil  :bold t :background nil :foreground nil)
+
+  ;;设置配色方案
+  ;; (my-package-install 'modus-themes)
+  ;; (setq modus-themes-bold-constructs t)
+  ;; (setq modus-themes-syntax '(faint alt-syntax green-strings yellow-comments))
+  ;; (setq modus-themes-hl-line '(underline accented))
+  ;; (load-theme 'modus-operandi t)
+  ;; (load-theme 'ef-autumn t)
+  (load-theme 'ef-day t)
+
+
+    #+end_src
+
+*** 鼠标提示
+
+    #+begin_src emacs-lisp
+  ;; 光标提示
+  (my-package-install  'beacon)
+  (beacon-mode 1)
+  (setq beacon-color "#FF4500")
+
+
+    #+end_src
+
 ** 窗口
 *** 安装插件
+
 #+begin_src emacs-lisp
 (my-package-install 'winum)
 #+end_src
+
 *** 设置
+
 #+begin_src emacs-lisp
 (with-eval-after-load 'winum
   (setq winum-format "%s")
@@ -166,6 +232,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
   (set-face-attribute 'winum-face nil :foreground "DeepPink" :underline "DeepPink" :weight 'bold))
 (my-run-with-idle-timer 0.5 #'winum-mode)
 #+end_src
+
 ** 文件
 *** 最近打开的文件
 #+begin_src emacs-lisp
@@ -214,24 +281,12 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 ;; 关闭备份文件
 (setq auto-save-default nil)
 #+end_src
+
 *** 文件锁
    lock file 是在出现编辑同一个文件时，Emacs 提供的保护措施。比如说，你先用 Emacs 编辑会文件，并没保存，之后又在用 Vim 编辑并保存了同一个文件，这时你回到 Emacs 试图保存文件，Emacs 会警告你：这个文件已经在别的地方修改了，一旦你直接保存，就会失去在 Vim 里的修改，你就有机会决定如何处理这个冲突。
-
-** 鼠标
-   让鼠标滚动更好用
-#+begin_src emacs-lisp
-(setq mouse-wheel-scroll-amount '(1 ((shift) . 1) ((control) . nil)))
-(setq mouse-wheel-progressive-speed nil)
-#+end_src
-** 其他
-#+begin_src emacs-lisp
-(fset 'yes-or-no-p 'y-or-n-p)
-;; 关闭错误时的“哔哔”的警告提示音
-(setq ring-bell-function 'ignore)  
-#+end_src
 * Evil相关
 ** 基本设置
-   设置undo历史记录数 
+   设置undo历史记录数
 #+begin_src emacs-lisp
 (setq undo-limit 8000000
       undo-strong-limit 8000000
@@ -256,20 +311,22 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
        (> (length isearch-string) 0)
        (push isearch-string my-search-text-history)))
 #+end_src
-    
+
 ** evil
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil)
 (my-package-install 'undo-fu)
 (my-package-install 'expand-region)
 #+end_src
+
 *** 常规设置
     切换至normal模式时，光标会回退一位,与vim行为保持一致
     #+begin_src emacs-lisp
 (evil-mode 1)
 (setq evil-move-cursor-back t)
-;; 在某些特定的模式下，并不需要开启evil以编辑文本，下面这一串配置使evil在这些模式下使用指定的模式；emacs代表emacs默认的编辑模式，而normal则是evil的normal模式 
+;; 在某些特定的模式下，并不需要开启evil以编辑文本，下面这一串配置使evil在这些模式下使用指定的模式；emacs代表emacs默认的编辑模式，而normal则是evil的normal模式
 (defvar my-initial-evil-state-setup
   '((minibuffer-inactive-mode . emacs)
     (calendar-mode . emacs)
@@ -277,36 +334,16 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
     (grep-mode . emacs)
     (Info-mode . emacs)
     (term-mode . emacs)
-    (sdcv-mode . emacs)
     (anaconda-nav-mode . emacs)
     (log-edit-mode . emacs)
-    (vc-log-edit-mode . emacs)
     (magit-log-edit-mode . emacs)
-    (erc-mode . emacs)
-    (diff-mode . emacs)
-    (ffip-diff-mode . normal)
-    (neotree-mode . emacs)
-    (w3m-mode . emacs)
-    (gud-mode . emacs)
     (help-mode . emacs)
     (eshell-mode . emacs)
     (shell-mode . emacs)
-    (xref--xref-buffer-mode . emacs)
-    (epa-key-list-mode . emacs)
     (fundamental-mode . emacs)
-    (weibo-timeline-mode . emacs)
-    (weibo-post-mode . emacs)
     (woman-mode . emacs)
-    (sr-mode . emacs)
-    (profiler-report-mode . emacs)
     (dired-mode . emacs)
-    (compilation-mode . emacs)
-    (speedbar-mode . emacs)
-    (ivy-occur-mode . emacs)
-    (ffip-file-mode . emacs)
-    (ivy-occur-grep-mode . normal)
-    (messages-buffer-mode . normal)
-    (js2-error-buffer-mode . emacs))
+    (messages-buffer-mode . normal))
   "Default evil state per major mode.")
 
 (with-eval-after-load 'evil
@@ -344,13 +381,15 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 
     设置evil的插入模式使用emacs原生按键
 #+begin_src emacs-lisp
-;; ;; remove all keybindings from insert-state keymap,it is VERY VERY important
+;; remove all keybindings from insert-state keymap,it is VERY VERY important
 (setcdr evil-insert-state-map nil)
-;;;把emacs模式下的按键绑定到Insert模式下
+;; 把emacs模式下的按键绑定到Insert模式下
 (define-key evil-insert-state-map
   (read-kbd-macro evil-toggle-key) 'evil-emacs-state)
 ;; but [escape] should switch back to normal state
 (define-key evil-insert-state-map [escape] 'evil-normal-state)
+(define-key evil-insert-state-map (kbd "C-w") 'backward-kill-word)
+(define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
 #+end_src
 
 *** 定义常规text objects
@@ -377,7 +416,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 #+end_src
 
 *** 定义文件路径text objects
-   将文件路径做为text object 
+   将文件路径做为text object
      - "vif" to select base name
      - "vaf" to select full path
    example:
@@ -505,26 +544,27 @@ If the character before and after CH is space or tab, CH is NOT slash"
 (define-key evil-outer-text-objects-map "f" 'my-evil-path-outer-text-object)
 
 #+end_src
-    
+
 *** vi各模式快捷键
+
    #+begin_src emacs-lisp
-;; 配置evil-ex模式下的快捷键 
+;; 配置evil-ex模式下的快捷键
 (define-key evil-ex-completion-map (kbd "C-a") 'move-beginning-of-line)
 (define-key evil-ex-completion-map (kbd "C-b") 'backward-char)
 (define-key evil-ex-completion-map (kbd "M-p") 'previous-complete-history-element)
 (define-key evil-ex-completion-map (kbd "M-n") 'next-complete-history-element)
 
-;; 配置evil-normal模式下的快捷键 
+;; 配置evil-normal模式下的快捷键
 (define-key evil-normal-state-map "Y" (kbd "y$"))
 (define-key evil-normal-state-map "go" 'goto-char)
 (define-key evil-normal-state-map (kbd "C-]") 'counsel-etags-find-tag-at-point)
 (define-key evil-normal-state-map "gh" 'beginning-of-defun)
 
-;; 配置evil-visual模式下的快捷键 
+;; 配置evil-visual模式下的快捷键
 (define-key evil-visual-state-map (kbd "v") 'er/expand-region)
 (define-key evil-visual-state-map (kbd "C-]") 'counsel-etags-find-tag-at-point)
 
-;; 配置evil-insert模式下的快捷键 
+;; 配置evil-insert模式下的快捷键
 (define-key evil-insert-state-map (kbd "C-x C-n") 'evil-complete-next-line)
 (define-key evil-insert-state-map (kbd "C-x C-p") 'evil-complete-previous-line)
 (define-key evil-insert-state-map (kbd "C-]") 'aya-expand)
@@ -532,10 +572,12 @@ If the character before and after CH is space or tab, CH is NOT slash"
 (define-key evil-insert-state-map (kbd "C-k") 'kill-line)
 (define-key evil-insert-state-map (kbd "M-j") 'yas-expand)
 
-;; 配置evil-emacs模式下的快捷键 
+;; 配置evil-emacs模式下的快捷键
 (define-key evil-emacs-state-map (kbd "M-j") 'yas-expand)
 #+end_src
-*** 设置evil的标记历史显示格式 
+
+*** 设置evil的标记历史显示格式
+
 #+begin_src emacs-lisp
 (defvar evil-global-markers-history nil)
 (defun my-evil-set-marker-hack (char &optional pos advance)
@@ -560,7 +602,7 @@ If the character before and after CH is space or tab, CH is NOT slash"
 (advice-add 'evil-set-marker :before #'my-evil-set-marker-hack)
 
 #+end_src
-*** 定义自己的文本对象v 代表某个语句 
+*** 定义自己的文本对象v 代表某个语句
 #+begin_src emacs-lisp
 (evil-define-text-object my-evil-a-statement (count &optional beg end type)
   "Select a statement."
@@ -657,7 +699,7 @@ If INCLUSIVE is t, the text object is inclusive."
 
 #+end_src
 
-*** 根据evil的模式来改变modeline颜色 
+*** 根据evil的模式来改变modeline颜色
 
 #+begin_src emacs-lisp
 
@@ -740,6 +782,7 @@ If INCLUSIVE is t, the text object is inclusive."
 
 ** evil-surround
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-surround)
 #+end_src
@@ -777,6 +820,7 @@ If INCLUSIVE is t, the text object is inclusive."
 
 ** evil-visualstar
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-visualstar)
 #+end_src
@@ -807,6 +851,7 @@ If INCLUSIVE is t, the text object is inclusive."
 
 ** evil-escape
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-escape)
 #+end_src
@@ -822,6 +867,7 @@ If INCLUSIVE is t, the text object is inclusive."
 
 ** evil-mark-replace
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-mark-replace)
 #+end_src
@@ -850,7 +896,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
     (evilmr-replace-in-defun))))
 
 #+end_src
-    
+
 ** evil-search
 
 #+begin_src emacs-lisp
@@ -860,6 +906,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 
 ** evil-nerd-commenter
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-nerd-commenter)
 #+end_src
@@ -904,6 +951,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 
 ** evil-matchit
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-matchit)
 #+end_src
@@ -919,15 +967,18 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 #+begin_src emacs-lisp
 (my-package-install 'evil-exchange)
 #+end_src
+
 *** 设置
+
 #+begin_src emacs-lisp
 ;; (setq evil-exchange-key (kbd "zx"))   ;; 更改默认的绑定按键
 (my-run-with-idle-timer 4 #'evil-exchange-install)
 #+end_src
-    
+
 ** evil-find-char-pinyin-mode
    Evil’s f/F/t/T command can search PinYin ,
 *** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'evil-find-char-pinyin)
 #+end_src
@@ -937,6 +988,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 
 * 中文输入
 ** pyim
+
 #+begin_src emacs-lisp
 (my-package-install 'pyim)
 (my-package-install 'pyim-basedict)
@@ -1037,7 +1089,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
   ;; don't use tooltip
   (setq pyim-use-tooltip 'popup))
 #+end_src
-* 临时
+
 * 补全
 ** company
 #+begin_src emacs-lisp :tangle no
@@ -1096,25 +1148,30 @@ In that case, insert the number."
 #+end_src
 
 ** 括号自动补全
+
 #+begin_src emacs-lisp
 (electric-pair-mode t)
 #+end_src
 ** vertico  增强minibuffer
+
 #+begin_src emacs-lisp
 (my-package-install 'vertico)
 (vertico-mode t)
 #+end_src
 ** orderless  模糊搜索
+
 #+begin_src emacs-lisp
 (my-package-install 'orderless)
 (setq completion-styles '(orderless))
 #+end_src
 ** marginalia  增强minibuffer中的注释信息
+
 #+begin_src emacs-lisp
 (my-package-install 'marginalia)
 (marginalia-mode t)
 #+end_src
 ** consult  增强文件内搜索和跳转函数定义
+
 #+begin_src emacs-lisp
 (my-package-install 'consult)
 (global-set-key (kbd "C-s") 'consult-line)
@@ -1127,20 +1184,26 @@ In that case, insert the number."
 #+end_src
 * 跳转
 ** 安装
+
 #+begin_src emacs-lisp
 (my-package-install 'avy)
 (my-package-install 'ace-pinyin)
 #+end_src
+
 ** 配置
+
 #+begin_src emacs-lisp
 (autoload 'ace-pinyin-jump-char-2 "ace-pinyin" "" t)
 #+end_src
+
 * Org相关
 ** 功能设置
-*** 解决加载慢 
+*** 解决加载慢
+
 #+begin_src emacs-lisp
 (setq org-modules-loaded t)
 #+end_src
+
 *** org tempo
     开启<s补全代码
 #+begin_src emacs-lisp
@@ -1161,9 +1224,11 @@ In that case, insert the number."
 #+end_src
 
 *** 关闭导出 html 时的validation
+
 #+begin_src emacs-lisp
 (setq org-html-validation-link nil)
 #+end_src
+
 ** 自定义函数
 *** org拖拽功能
 
@@ -1214,7 +1279,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 
 * 项目
 ** Git
-*** vc-msg 
+*** vc-msg
 #+begin_src emacs-lisp
 (my-package-install 'vc-msg)
 (autoload 'vc-msg-show "vc-msg" "")
@@ -1233,6 +1298,8 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (global-set-key (kbd "C-h") 'delete-backward-char)
 (global-set-key (kbd "M-m") 'help-command)
 (define-key isearch-mode-map "\C-h" 'isearch-delete-char)
+;; (global-set-key (kbd "C-w") 'backward-kill-word)
+;; (global-set-key (kbd "C-u") 'backward-kill-sentence)
 #+end_src
 
    快速打开配置文件
@@ -1241,6 +1308,21 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   (interactive)
   (find-file "~/.emacs.d/config.org"))
 (global-set-key (kbd "<f12>") 'open-init-file)
+#+end_src
+
+    其他
+#+begin_src emacs-lisp
+;; 打开shell窗口
+(global-set-key (kbd "<f1>") 'aweshell-dedicated-toggle)
+;; 查询英文单词含义
+(global-set-key (kbd "<f2>") 'lsp-bridge-toggle-sdcv-helper)
+;; 打开中文输入法
+(global-set-key (kbd "<f9>") 'my-toggle-input-method)
+
+;; 临时使用
+(global-set-key (kbd "<f10>") 'one-key-menu-magit)
+
+
 #+end_src
 
 ** General
@@ -1275,7 +1357,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "wf" 'popup-which-function)
 
 #+end_src
-    
+
 ** 分号
 
 #+begin_src emacs-lisp
@@ -1442,8 +1524,9 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   )
 
 #+end_src
-    
+
 * lsp-bridge
+
 #+begin_src emacs-lisp
 (my-package-install  'posframe)
 (my-package-install  'markdown-mode)
@@ -1452,6 +1535,286 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (require 'yasnippet)
 (yas-global-mode 1)
 (require 'lsp-bridge)
-(global-lsp-bridge-mode) 
+(global-lsp-bridge-mode)
 ;; (setq lsp-bridge-enable-auto-format-code t)
+
+(unless (display-graphic-p)
+  (with-eval-after-load 'acm
+    (require 'acm-terminal)))
 #+end_src
+
+** clangd配置文件
+
+   #+begin_example
+# 语言: None, Cpp, Java, JavaScript, ObjC, Proto, TableGen, TextProto
+Language: Cpp
+# BasedOnStyle:	LLVM
+
+# 访问说明符(public、private等)的偏移
+AccessModifierOffset: -4
+
+# 开括号(开圆括号、开尖括号、开方括号)后的对齐: Align, DontAlign, AlwaysBreak(总是在开括号后换行)
+AlignAfterOpenBracket: Align
+
+# 连续赋值时，对齐所有等号
+AlignConsecutiveAssignments: false
+
+# 连续声明时，对齐所有声明的变量名
+AlignConsecutiveDeclarations: false
+
+# 右对齐逃脱换行(使用反斜杠换行)的反斜杠
+AlignEscapedNewlines: Right
+
+# 水平对齐二元和三元表达式的操作数
+AlignOperands: true
+
+# 对齐连续的尾随的注释
+AlignTrailingComments: true
+
+# 不允许函数声明的所有参数在放在下一行
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# 不允许短的块放在同一行
+AllowShortBlocksOnASingleLine: true
+
+# 允许短的case标签放在同一行
+AllowShortCaseLabelsOnASingleLine: true
+
+# 允许短的函数放在同一行: None, InlineOnly(定义在类中), Empty(空函数), Inline(定义在类中，空函数), All
+AllowShortFunctionsOnASingleLine: None
+
+# 允许短的if语句保持在同一行
+AllowShortIfStatementsOnASingleLine: true
+
+# 允许短的循环保持在同一行
+AllowShortLoopsOnASingleLine: true
+
+# 总是在返回类型后换行: None, All, TopLevel(顶级函数，不包括在类中的函数),
+# AllDefinitions(所有的定义，不包括声明), TopLevelDefinitions(所有的顶级函数的定义)
+AlwaysBreakAfterReturnType: None
+
+# 总是在多行string字面量前换行
+AlwaysBreakBeforeMultilineStrings: false
+
+# 总是在template声明后换行
+AlwaysBreakTemplateDeclarations: true
+
+# false表示函数实参要么都在同一行，要么都各自一行
+BinPackArguments: true
+
+# false表示所有形参要么都在同一行，要么都各自一行
+BinPackParameters: true
+
+# 大括号换行，只有当BreakBeforeBraces设置为Custom时才有效
+BraceWrapping:
+  # class定义后面
+  AfterClass: false
+  # 控制语句后面
+  AfterControlStatement: false
+  # enum定义后面
+  AfterEnum: false
+  # 函数定义后面
+  AfterFunction: false
+  # 命名空间定义后面
+  AfterNamespace: false
+  # struct定义后面
+  AfterStruct: false
+  # union定义后面
+  AfterUnion: false
+  # extern之后
+  AfterExternBlock: false
+  # catch之前
+  BeforeCatch: false
+  # else之前
+  BeforeElse: false
+  # 缩进大括号
+  IndentBraces: false
+  # 分离空函数
+  SplitEmptyFunction: false
+  # 分离空语句
+  SplitEmptyRecord: false
+  # 分离空命名空间
+  SplitEmptyNamespace: false
+
+# 在二元运算符前换行: None(在操作符后换行), NonAssignment(在非赋值的操作符前换行), All(在操作符前换行)
+BreakBeforeBinaryOperators: NonAssignment
+
+# 在大括号前换行: Attach(始终将大括号附加到周围的上下文), Linux(除函数、命名空间和类定义，与Attach类似),
+#   Mozilla(除枚举、函数、记录定义，与Attach类似), Stroustrup(除函数定义、catch、else，与Attach类似),
+#   Allman(总是在大括号前换行), GNU(总是在大括号前换行，并对于控制语句的大括号增加额外的缩进), WebKit(在函数前换行), Custom
+#   注：这里认为语句块也属于函数
+# BreakBeforeBraces: Custom
+BreakBeforeBraces: Allman
+
+# 在三元运算符前换行
+BreakBeforeTernaryOperators: false
+
+# 在构造函数的初始化列表的冒号后换行
+BreakConstructorInitializers: AfterColon
+
+#BreakInheritanceList: AfterColon
+
+BreakStringLiterals: false
+
+# 每行字符的限制，0表示没有限制
+ColumnLimit: 0
+
+CompactNamespaces: true
+
+# 构造函数的初始化列表要么都在同一行，要么都各自一行
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+
+# 构造函数的初始化列表的缩进宽度
+ConstructorInitializerIndentWidth: 4
+
+# 延续的行的缩进宽度
+ContinuationIndentWidth: 4
+
+# 去除C++11的列表初始化的大括号{后和}前的空格
+Cpp11BracedListStyle: true
+
+# 继承最常用的指针和引用的对齐方式
+DerivePointerAlignment: false
+
+# 固定命名空间注释
+FixNamespaceComments: true
+
+# 缩进case标签
+IndentCaseLabels: false
+
+IndentPPDirectives: None
+
+# 缩进宽度
+IndentWidth: 4
+
+# 函数返回类型换行时，缩进函数声明或函数定义的函数名
+IndentWrappedFunctionNames: false
+
+# 保留在块开始处的空行
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+# 连续空行的最大数量
+MaxEmptyLinesToKeep: 1
+
+# 命名空间的缩进: None, Inner(缩进嵌套的命名空间中的内容), All
+NamespaceIndentation: None
+
+# 指针和引用的对齐: Left, Right, Middle
+PointerAlignment: Left
+
+# 允许重新排版注释
+ReflowComments: true
+
+# 允许排序#include
+SortIncludes: false
+
+# 允许排序 using 声明
+SortUsingDeclarations: false
+
+# 在C风格类型转换后添加空格
+SpaceAfterCStyleCast: false
+
+# 在Template 关键字后面添加空格
+SpaceAfterTemplateKeyword: true
+
+# 在赋值运算符之前添加空格
+SpaceBeforeAssignmentOperators: true
+
+# SpaceBeforeCpp11BracedList: true
+
+# SpaceBeforeCtorInitializerColon: true
+
+# SpaceBeforeInheritanceColon: true
+
+# 开圆括号之前添加一个空格: Never, ControlStatements, Always
+SpaceBeforeParens: ControlStatements
+
+# SpaceBeforeRangeBasedForLoopColon: true
+
+# 在空的圆括号中添加空格
+SpaceInEmptyParentheses: false
+
+# 在尾随的评论前添加的空格数(只适用于//)
+SpacesBeforeTrailingComments: 1
+
+# 在尖括号的<后和>前添加空格
+SpacesInAngles: false
+
+# 在C风格类型转换的括号中添加空格
+SpacesInCStyleCastParentheses: false
+
+# 在容器(ObjC和JavaScript的数组和字典等)字面量中添加空格
+SpacesInContainerLiterals: true
+
+# 在圆括号的(后和)前添加空格
+SpacesInParentheses: false
+
+# 在方括号的[后和]前添加空格，lamda表达式和未指明大小的数组的声明不受影响
+SpacesInSquareBrackets: false
+
+# 标准: Cpp03, Cpp11, Auto
+Standard: Cpp11
+
+# tab宽度
+TabWidth: 4
+
+# 使用tab字符: Never, ForIndentation, ForContinuationAndIndentation, Always
+# UseTab: Never
+UseTab: ForIndentation
+   #+end_example
+
+* auto-save
+
+  #+begin_src  emacs-lisp
+(my-require 'auto-save)
+(auto-save-enable)
+
+(setq auto-save-silent t)   ; quietly save
+(setq auto-save-delete-trailing-whitespace t)  ; automatically delete spaces at the end of the line when saving
+
+;;; custom predicates if you don't want auto save.
+;;; disable auto save mode when current filetype is an gpg file.
+(setq auto-save-disable-predicates
+      '((lambda ()
+      (string-suffix-p
+      "gpg"
+      (file-name-extension (buffer-name)) t))))
+  #+end_src
+
+* aweshell
+
+  #+begin_src emacs-lisp
+;; (my-require 'company)
+(my-require 'aweshell)
+;; (setq aweshell-autosuggest-backend "company-style")
+  #+end_src
+
+* one-key
+
+  #+begin_src emacs-lisp
+(my-require 'one-key)
+(one-key-create-menu
+ "MAGIT"
+ '(
+   (("s" . "Magit status") . magit-status)
+   (("c" . "Magit checkout") . magit-checkout)
+   (("C" . "Magit commit") . magit-commit)
+   (("u" . "Magit push to remote") . magit-push-current-to-pushremote)
+   (("p" . "Magit delete remote branch") . magit-delete-remote-branch)
+   (("i" . "Magit pull") . magit-pull-from-upstream)
+   (("r" . "Magit rebase") . magit-rebase)
+   (("e" . "Magit merge") . magit-merge)
+   (("l" . "Magit log") . magit-log-all)
+   (("L" . "Magit blame") . magit-blame+)
+   (("b" . "Magit branch") . magit-branch)
+   (("B" . "Magit buffer") . magit-process-buffer)
+   (("D" . "Magit discarded") . magit-discard)
+   (("," . "Magit init") . magit-init)
+   (("." . "Magit add remote") . magit-remote-add)
+   )
+ t)
+
+
+  #+end_src
+
+* 临时
