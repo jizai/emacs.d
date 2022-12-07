@@ -1,8 +1,10 @@
 * 基础设置
 ** lex binding
+
 #+begin_src emacs-lisp
 ;; -*- lexical-binding: t -*-
 #+end_src
+
 ** 插件相关
 *** 插件源设置
 #+begin_src emacs-lisp
@@ -115,11 +117,36 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 ** 把玩插件设置
 
 #+begin_src emacs-lisp
-(defun add-subdirs-to-load-path (dir)
-  "Recursive add directories to 'load-path'"
-  (let ((default-directory (file-name-as-directory dir)))
-    (add-to-list 'load-path dir)
-    (normal-top-level-add-subdirs-to-load-path)))
+(defun add-subdirs-to-load-path (search-dir)
+  (interactive)
+  (let* ((dir (file-name-as-directory search-dir)))
+    (dolist (subdir
+             ;; 过滤出不必要的目录，提升 Emacs 启动速度
+             (cl-remove-if
+              #'(lambda (subdir)
+                  (or
+                   ;; 不是目录的文件都移除
+                   (not (file-directory-p (concat dir subdir)))
+                   ;; 父目录、 语言相关和版本控制目录都移除
+                   (member subdir '("." ".."
+                                    "dist" "node_modules" "__pycache__"
+                                    "RCS" "CVS" "rcs" "cvs" ".git" ".github"))))
+              (directory-files dir)))
+      (let ((subdir-path (concat dir (file-name-as-directory subdir))))
+        ;; 目录下有 .el .so .dll 文件的路径才添加到 `load-path' 中，提升 Emacs 启动速度
+        (when (cl-some #'(lambda (subdir-file)
+                           (and (file-regular-p (concat subdir-path subdir-file))
+                                ;; .so .dll 文件指非 Elisp 语言编写的 Emacs 动态库
+                                (member (file-name-extension subdir-file) '("el" "so" "dll"))))
+                       (directory-files subdir-path))
+
+          ;; 注意：`add-to-list' 函数的第三个参数必须为 t ，表示加到列表末尾
+          ;; 这样 Emacs 会从父目录到子目录的顺序搜索 Elisp 插件，顺序反过来会导致 Emacs 无法正常启动
+          (add-to-list 'load-path subdir-path t))
+
+        ;; 继续递归搜索子目录
+        (add-subdirs-to-load-path subdir-path)))))
+
 (add-subdirs-to-load-path "/home/yu/.emacs.d/yuemacs")
 #+end_src
 
@@ -235,15 +262,18 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 
 ** 文件
 *** 最近打开的文件
+
 #+begin_src emacs-lisp
 (my-require 'recentf)
 (recentf-mode 1)
 (setq recentf-max-menu-item 10)
 #+end_src
+
 *** 自动加载外部修改
     #+begin_src emacs-lisp
 (global-auto-revert-mode 1)
     #+end_src
+
 *** 重新打开刚刚关闭的文件
     重新打开是指:在emacs不关闭的情况下,打开刚刚关闭的文件
 #+begin_src emacs-lisp
@@ -268,6 +298,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 (yu-last-closed-file-mode)
 
 #+end_src
+
 *** 备份文件
     备份文件形如:filename~
 #+begin_src emacs-lisp
@@ -284,6 +315,24 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 
 *** 文件锁
    lock file 是在出现编辑同一个文件时，Emacs 提供的保护措施。比如说，你先用 Emacs 编辑会文件，并没保存，之后又在用 Vim 编辑并保存了同一个文件，这时你回到 Emacs 试图保存文件，Emacs 会警告你：这个文件已经在别的地方修改了，一旦你直接保存，就会失去在 Vim 里的修改，你就有机会决定如何处理这个冲突。
+*** auto-save
+
+  #+begin_src  emacs-lisp
+(my-require 'auto-save)
+(auto-save-enable)
+
+(setq auto-save-silent t)   ; quietly save
+(setq auto-save-delete-trailing-whitespace t)  ; automatically delete spaces at the end of the line when saving
+
+;;; custom predicates if you don't want auto save.
+;;; disable auto save mode when current filetype is an gpg file.
+(setq auto-save-disable-predicates
+      '((lambda ()
+      (string-suffix-p
+      "gpg"
+      (file-name-extension (buffer-name)) t))))
+  #+end_src
+
 * Evil相关
 ** 基本设置
    设置undo历史记录数
@@ -1152,24 +1201,28 @@ In that case, insert the number."
 #+begin_src emacs-lisp
 (electric-pair-mode t)
 #+end_src
+
 ** vertico  增强minibuffer
 
 #+begin_src emacs-lisp
 (my-package-install 'vertico)
 (vertico-mode t)
 #+end_src
+
 ** orderless  模糊搜索
 
 #+begin_src emacs-lisp
 (my-package-install 'orderless)
 (setq completion-styles '(orderless))
 #+end_src
+
 ** marginalia  增强minibuffer中的注释信息
 
 #+begin_src emacs-lisp
 (my-package-install 'marginalia)
 (marginalia-mode t)
 #+end_src
+
 ** consult  增强文件内搜索和跳转函数定义
 
 #+begin_src emacs-lisp
@@ -1182,6 +1235,7 @@ In that case, insert the number."
 (with-eval-after-load 'consult
   (consult-customize consult-recent-file :preview-key nil))
 #+end_src
+
 * 跳转
 ** 安装
 
@@ -1762,24 +1816,6 @@ TabWidth: 4
 # UseTab: Never
 UseTab: ForIndentation
    #+end_example
-
-* auto-save
-
-  #+begin_src  emacs-lisp
-(my-require 'auto-save)
-(auto-save-enable)
-
-(setq auto-save-silent t)   ; quietly save
-(setq auto-save-delete-trailing-whitespace t)  ; automatically delete spaces at the end of the line when saving
-
-;;; custom predicates if you don't want auto save.
-;;; disable auto save mode when current filetype is an gpg file.
-(setq auto-save-disable-predicates
-      '((lambda ()
-      (string-suffix-p
-      "gpg"
-      (file-name-extension (buffer-name)) t))))
-  #+end_src
 
 * aweshell
 
