@@ -227,7 +227,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
   ;; (setq modus-themes-hl-line '(underline accented))
   ;; (load-theme 'modus-operandi t)
   ;; (load-theme 'ef-autumn t)
-  (load-theme 'ef-day t)
+  ;; (load-theme 'ef-day t)
 
 
     #+end_src
@@ -332,6 +332,94 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
       "gpg"
       (file-name-extension (buffer-name)) t))))
   #+end_src
+
+** 其他
+*** yes no 相关
+   #+begin_src emacs-lisp
+;; 使用y代替yes
+(fset 'yes-or-no-p 'y-or-n-p)
+;; 让回车键表示输入 y
+(define-key y-or-n-p-map [return] 'act)
+   #+end_src
+
+*** compile 相关
+**** compile 无错误则正常关闭窗口
+    如果编译没有错误,则隐藏complie窗口
+    hide the compilation buffer automatically is not a good idea.
+    if compiling command is a unit test command
+    it's better let user decide when to hide something
+    #+begin_src emacs-lisp :tangle no
+(winner-mode t)
+(defvar yu-do-bury-compilation-buffer t
+  "Hide compilation buffer if compile successfully.")
+
+(defun yu-compilation-finish-hide-buffer-on-success (buffer str)
+  "Bury BUFFER whose name marches STR.
+This function can be re-used by other major modes after compilation."
+  (cond
+   ;;there were errors
+   ((string-match "exited abnormally" str)
+    (message "There IS compilation errors, press C-x ` to visit!"))
+
+   ;;no errors, make the compilation window go away in 0.5 seconds
+   (t
+    (when (and yu-do-bury-compilation-buffer
+               (buffer-name buffer)
+               (string-match "*compilation*" (buffer-name buffer)))
+      ;; @see http://emacswiki.org/emacs/ModeCompile#toc2
+      (bury-buffer "*compilation*")
+      (winner-undo)
+      (message "NO compilation error.")))))
+
+;; @see http://xugx2007.blogspot.com.au/2007/06/benjamin-rutts-emacs-c-development-tips.html
+(setq compilation-finish-functions
+      '(yu-compilation-finish-hide-buffer-on-success))
+
+    #+end_src
+
+**** 编译快捷键
+
+     #+begin_src emacs-lisp
+(defun yu-smart-compile()
+  "比较智能的C/C++编译命令
+如果当前目录有makefile则用make -k编译，否则，如果是
+处于c-mode，就用gcc -Wall编译，如果是c++-mode就用
+g++ -Wall编译"
+  (interactive)
+  ;; 查找 Makefile
+  (let ((candidate-make-file-name '("makefile" "Makefile" "GNUmakefile"))
+        (command nil))
+    (if (not (null
+              (find t candidate-make-file-name :key
+                    '(lambda (f) (file-readable-p f)))))
+        (setq command "make -k ")
+        ;; 没有找到 Makefile ，查看当前 mode 是否是已知的可编译的模式
+        (if (null (buffer-file-name (current-buffer)))
+            (message "Buffer not attached to a file, won't compile!")
+            (if (eq major-mode 'c-mode)
+                (setq command
+                      (concat "gcc -g -Wall -o "
+                              (file-name-sans-extension
+                               (file-name-nondirectory buffer-file-name))
+                              " "
+                              (file-name-nondirectory buffer-file-name)))
+              (if (eq major-mode 'c++-mode)
+                  (setq command
+                        (concat "g++ -g -Wall -o "
+                                (file-name-sans-extension
+                                 (file-name-nondirectory buffer-file-name))
+                                " "
+                                (file-name-nondirectory buffer-file-name)))
+                (message "Unknow mode, won't compile!")))))
+    (if (not (null command))
+        (let ((command (read-from-minibuffer "Compile command: " command)))
+          (compile command)))))
+
+  (defun yu-c-mode()
+  (local-set-key (kbd "<f5>") #'yu-smart-compile))
+  (add-hook 'c-mode-hook 'yu-c-mode)
+
+     #+end_src
 
 * Evil相关
 ** 基本设置
@@ -1283,6 +1371,31 @@ In that case, insert the number."
 (setq org-html-validation-link nil)
 #+end_src
 
+** 外观定制
+*** 标题字体大小
+    设置Org mode标题以及每级标题行的大小
+    #+begin_src emacs-lisp
+(custom-set-faces '(org-document-title ((t (:height 1.75 :weight bold))))
+		  '(org-level-1 ((t (:height 1.2 :weight bold))))
+		  '(org-level-2 ((t (:height 1.15 :weight bold))))
+		  '(org-level-3 ((t (:height 1.1 :weight bold))))
+		  '(org-level-4 ((t (:height 1.05 :weight bold))))
+		  '(org-level-5 ((t (:height 1.0 :weight bold))))
+		  '(org-level-6 ((t (:height 1.0 :weight bold))))
+		  '(org-level-7 ((t (:height 1.0 :weight bold))))
+		  '(org-level-8 ((t (:height 1.0 :weight bold))))
+		  '(org-level-9 ((t (:height 1.0 :weight bold)))))
+
+
+    #+end_src
+
+*** 强调
+   使用下面的包来自定义一些强调符号和其对应的外观
+   该库只定义了前2个,可以支持17的,有需要的自己增加就行
+   #+begin_src emacs-lisp
+   (my-require 'org-extra-emphasis)
+   #+end_src
+
 ** 自定义函数
 *** org拖拽功能
 
@@ -1331,6 +1444,38 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
                        (length image-overlays))))))))
 #+end_src
 
+*** 导出src block并打开文件
+    emacs命令可以使用C-u传递universal-argument.
+| Key Input               | Value of current-prefix-arg |
+|-------------------------+-----------------------------|
+| No universal arg called | nil                         |
+| 【Ctrl+u -】            | Symbol -                    |
+| 【Ctrl+u - 2】          | Number -2                   |
+| 【Ctrl+u 1】            | Number 1                    |
+| 【Ctrl+u 4】            | Number 4                    |
+| 【Ctrl+u】              | List '(4)                   |
+| 【Ctrl+u Ctrl+u】       | List '(16)                  |
+
+    如果要为加了 universal argument C-u 的命令绑定快捷键, 重点是认识到 C-u 的作用是为其后接的交互式命令加了一个 argument, 这个 argument 是 '(4), 按 C-u 两次是 '(16), 按 C-u 三次是 '(64)
+
+    以命令 org-latex-preview 为例:
+      1. C-u org-latex-preview 等价于 M-: (org-latex-preview '(4)), 取消当前 headline 下的所有 fragments 的图片显示 (显示 latex 源码)
+      2. C-u C-u org-latex-preview 等价于 M-: (org-latex-preview '(16)) , 在当前 buffer 内用图片显示所有的 latex fragments.
+      3. C-u C-u C-u org-latex-preview 等价于 M-: (org-latex-preview '(64)), 取消当前 buffer 内的所有 latex fragments 的图片显示 (显示 latex 源码)
+
+    #+begin_src emacs-lisp
+(defun yu-org-babel-goto-tangle-file ()
+  (interactive)
+  (org-babel-tangle '(4))
+  (if-let* ((args (nth 2 (org-babel-get-src-block-info t)))
+	    (tangle (alist-get :tangle args)))
+      (when (not (equal "no" tangle))
+	(find-file tangle)
+	t)))
+
+;; (add-hook 'org-open-at-point-functions 'yu-org-babel-goto-tangle-file)
+    #+end_src
+
 * 项目
 ** Git
 *** vc-msg
@@ -1338,6 +1483,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (my-package-install 'vc-msg)
 (autoload 'vc-msg-show "vc-msg" "")
 #+end_src
+
 ** Project
   project-find-file  是emacs内置的一个函数
 * 快捷键
@@ -1494,6 +1640,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "ts" 'aweshell-dedicated-toggle
   ;; Org 相关配置
   "oo" 'org-open-at-point-and-delete-other-windows
+  "ot" 'yu-org-babel-goto-tangle-file
   "oe" 'org-html-export-to-html
   "os" '(lambda ()
           (interactive)
@@ -1546,7 +1693,6 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "fa" 'flyspell-auto-correct-word
   "lb" 'langtool-check-buffer
   "ne" 'lazyflymake-goto-next-error
-  "otl" 'org-toggle-link-display
   "ar" 'align-regexp
   "vf" 'vc-rename-file-and-buffer
   "vc" 'vc-copy-file-and-rename-buffer
@@ -1591,6 +1737,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (require 'lsp-bridge)
 (global-lsp-bridge-mode)
 ;; (setq lsp-bridge-enable-auto-format-code t)
+(setq acm-candidate-match-function 'orderless-prefixes)
 
 (unless (display-graphic-p)
   (with-eval-after-load 'acm
