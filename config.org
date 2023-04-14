@@ -17,16 +17,16 @@
 *** 安装插件
     如果require一个包,但是这个包不存在,那么就会报错,后面的代码就不会执行了. 这个函数用来替换原来的require函数,出错之后只会报警告
 #+begin_src emacs-lisp
-(defun my-require (feature)
+(defun yu-require (feature)
   "Make sure FEATURE is required."
   (unless (featurep feature)
     (condition-case nil
         (require feature)
       (error nil))))
 
-(defun my-package-install (package &optional min-version no-refresh)
+(defun yu-package-install (package &optional min-version no-refresh)
   "Ask elpa to install given PACKAGE with MIN-VERSION. If NO-REFRESH is nil, `package-refresh-contents' is called."
-  (my-require 'package)
+  (yu-require 'package)
   (unless (package-installed-p package min-version) ;;没有安装才进行安装
     (unless (or (assoc package package-archive-contents) no-refresh)
       (package-refresh-contents))
@@ -221,13 +221,13 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
   ;; (set-face-attribute 'hl-line nil :inherit nil  :bold t :background nil :foreground nil)
 
   ;;设置配色方案
-  ;; (my-package-install 'modus-themes)
+  ;; (yu-package-install 'modus-themes)
   ;; (setq modus-themes-bold-constructs t)
   ;; (setq modus-themes-syntax '(faint alt-syntax green-strings yellow-comments))
   ;; (setq modus-themes-hl-line '(underline accented))
   ;; (load-theme 'modus-operandi t)
   ;; (load-theme 'ef-autumn t)
-  ;; (load-theme 'ef-day t)
+  (load-theme 'ef-frost t)
 
 
     #+end_src
@@ -236,7 +236,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 
     #+begin_src emacs-lisp
   ;; 光标提示
-  (my-package-install  'beacon)
+  (yu-package-install  'beacon)
   (beacon-mode 1)
   (setq beacon-color "#FF4500")
 
@@ -247,7 +247,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 *** 安装插件
 
 #+begin_src emacs-lisp
-(my-package-install 'winum)
+(yu-package-install 'winum)
 #+end_src
 
 *** 设置
@@ -264,7 +264,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 *** 最近打开的文件
 
 #+begin_src emacs-lisp
-(my-require 'recentf)
+(yu-require 'recentf)
 (recentf-mode 1)
 (setq recentf-max-menu-item 10)
 #+end_src
@@ -318,7 +318,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 *** auto-save
 
   #+begin_src  emacs-lisp
-(my-require 'auto-save)
+(yu-require 'auto-save)
 (auto-save-enable)
 
 (setq auto-save-silent t)   ; quietly save
@@ -415,11 +415,43 @@ g++ -Wall编译"
         (let ((command (read-from-minibuffer "Compile command: " command)))
           (compile command)))))
 
-  (defun yu-c-mode()
-  (local-set-key (kbd "<f5>") #'yu-smart-compile))
-  (add-hook 'c-mode-hook 'yu-c-mode)
+  (defun yu-compile-key()
+    (local-set-key (kbd "<f5>") #'yu-smart-compile))
+  (add-hook 'c-mode-common-hook 'yu-compile-key)
 
      #+end_src
+
+* 实用函数
+** 与外部命令行交互
+
+   #+begin_src emacs-lisp
+;; 把选中区域中的内容传给命令行工具,并将其执行的结果替换原有选中区域
+(defun yu-execute-external-command-on-region ()
+  "Execute the specified external command on the contents of the current region, replacing the region contents with the result."
+  (interactive)
+  (when (region-active-p)
+    (let ((start (region-beginning))
+          (end (region-end))
+          (command (read-shell-command "Shell command: ")))
+      (let ((output-buffer (generate-new-buffer "*External Command Output*")))
+        ;; Run the command in a shell using the contents of the region as input
+        (call-process-region start end shell-file-name nil output-buffer nil
+                             shell-command-switch command)
+        ;; Replace the region contents with the command output
+        (delete-region start end)
+        (insert-buffer-substring output-buffer)))))
+
+;; 执行外部命令,并将其结果插入到当前buffer
+(defun yu-insert-command-output (cmd)
+  "Insert the output of external command CMD at the end of the current buffer."
+  (interactive "sEnter command to run: ")
+  (let ((output (shell-command-to-string cmd)))
+    (save-excursion
+      (goto-char (point-max))
+      (insert output))))
+
+
+   #+end_src
 
 * Evil相关
 ** 基本设置
@@ -453,9 +485,9 @@ g++ -Wall编译"
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil)
-(my-package-install 'undo-fu)
-(my-package-install 'expand-region)
+(yu-package-install 'evil)
+(yu-package-install 'undo-fu)
+(yu-package-install 'expand-region)
 #+end_src
 
 *** 常规设置
@@ -527,6 +559,7 @@ g++ -Wall编译"
 (define-key evil-insert-state-map [escape] 'evil-normal-state)
 (define-key evil-insert-state-map (kbd "C-w") 'backward-kill-word)
 (define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
+(define-key evil-insert-state-map (kbd "C-a") 'back-to-indentation)
 #+end_src
 
 *** 定义常规text objects
@@ -711,6 +744,7 @@ If the character before and after CH is space or tab, CH is NOT slash"
 
 ;; 配置evil-emacs模式下的快捷键
 (define-key evil-emacs-state-map (kbd "M-j") 'yas-expand)
+(define-key evil-ex-completion-map (kbd "C-a") 'back-to-indentation)
 #+end_src
 
 *** 设置evil的标记历史显示格式
@@ -921,7 +955,7 @@ If INCLUSIVE is t, the text object is inclusive."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-surround)
+(yu-package-install 'evil-surround)
 #+end_src
 *** 基本设置
    evil-surround 类于vim-surround，可以在evil模式下方便地操作匹配的符号
@@ -959,7 +993,7 @@ If INCLUSIVE is t, the text object is inclusive."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-visualstar)
+(yu-package-install 'evil-visualstar)
 #+end_src
 *** 基本设置
    选择一段文本,按#(上)或者*(下)搜索
@@ -990,7 +1024,7 @@ If INCLUSIVE is t, the text object is inclusive."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-escape)
+(yu-package-install 'evil-escape)
 #+end_src
 *** 设置
    设置退出插入模式的按键  disable evil-escape when input method is on
@@ -1006,7 +1040,7 @@ If INCLUSIVE is t, the text object is inclusive."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-mark-replace)
+(yu-package-install 'evil-mark-replace)
 #+end_src
    更改函数内某个符号名
    #+begin_src emacs-lisp
@@ -1045,7 +1079,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-nerd-commenter)
+(yu-package-install 'evil-nerd-commenter)
 #+end_src
 *** 设置
    快速进行注释，不依赖于evil
@@ -1072,7 +1106,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 (defun my-evilnc-comment-or-uncomment-paragraphs (&optional num)
   "Comment or uncomment NUM paragraphs which might contain html tags."
   (interactive "p")
-  (my-require 'evil-nerd-commenter)
+  (yu-require 'evil-nerd-commenter)
   (let* ((paragraph-region (evilnc--get-one-paragraph-region))
          (html-p (ignore-errors
                    (or (save-excursion
@@ -1090,7 +1124,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-matchit)
+(yu-package-install 'evil-matchit)
 #+end_src
 *** 设置
    按%进行匹配跳转
@@ -1102,7 +1136,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 *** 安装
    类vim-exchange，可以方便地交换两处字符  按两次gx即可 gX取消
 #+begin_src emacs-lisp
-(my-package-install 'evil-exchange)
+(yu-package-install 'evil-exchange)
 #+end_src
 
 *** 设置
@@ -1117,7 +1151,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 *** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'evil-find-char-pinyin)
+(yu-package-install 'evil-find-char-pinyin)
 #+end_src
 #+begin_src emacs-lisp
 (my-run-with-idle-timer 4 #'evil-find-char-pinyin-mode)
@@ -1127,13 +1161,13 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 ** pyim
 
 #+begin_src emacs-lisp
-(my-package-install 'pyim)
-(my-package-install 'pyim-basedict)
+(yu-package-install 'pyim)
+(yu-package-install 'pyim-basedict)
 (defun my-toggle-input-method ()
   "When input method is on, goto `evil-insert-state'."
   (interactive)
   ;; load IME when needed, less memory footprint
-  (my-require 'pyim)
+  (yu-require 'pyim)
   ;; some guys don't use evil-mode at all
   (cond
    ((and (boundp 'evil-mode) evil-mode)
@@ -1203,7 +1237,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
     (setq pyim-enable-shortcode nil)
 
     ;; use memory efficient pyim engine for pinyin IME
-    (my-require 'pyim-dregcache)
+    (yu-require 'pyim-dregcache)
     (setq pyim-dcache-backend 'pyim-dregcache)
 
     ;; automatically load pinyin dictionaries "*.pyim" under "~/.eim/"
@@ -1230,7 +1264,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 * 补全
 ** company
 #+begin_src emacs-lisp :tangle no
-(my-package-install 'company)
+(yu-package-install 'company)
 ;; (global-company-mode 1)
 (add-hook 'after-init-hook 'global-company-mode)
 
@@ -1293,28 +1327,28 @@ In that case, insert the number."
 ** vertico  增强minibuffer
 
 #+begin_src emacs-lisp
-(my-package-install 'vertico)
+(yu-package-install 'vertico)
 (vertico-mode t)
 #+end_src
 
 ** orderless  模糊搜索
 
 #+begin_src emacs-lisp
-(my-package-install 'orderless)
+(yu-package-install 'orderless)
 (setq completion-styles '(orderless))
 #+end_src
 
 ** marginalia  增强minibuffer中的注释信息
 
 #+begin_src emacs-lisp
-(my-package-install 'marginalia)
+(yu-package-install 'marginalia)
 (marginalia-mode t)
 #+end_src
 
 ** consult  增强文件内搜索和跳转函数定义
 
 #+begin_src emacs-lisp
-(my-package-install 'consult)
+(yu-package-install 'consult)
 (global-set-key (kbd "C-s") 'consult-line)
 (defun yu-paste()
   (interactive)
@@ -1328,8 +1362,8 @@ In that case, insert the number."
 ** 安装
 
 #+begin_src emacs-lisp
-(my-package-install 'avy)
-(my-package-install 'ace-pinyin)
+(yu-package-install 'avy)
+(yu-package-install 'ace-pinyin)
 #+end_src
 
 ** 配置
@@ -1371,6 +1405,12 @@ In that case, insert the number."
 (setq org-html-validation-link nil)
 #+end_src
 
+*** 导出html时的标题范围
+
+    #+begin_src emacs-lisp
+    (setq org-export-headline-levels 5)
+    #+end_src
+
 ** 外观定制
 *** 标题字体大小
     设置Org mode标题以及每级标题行的大小
@@ -1384,8 +1424,10 @@ In that case, insert the number."
 		  '(org-level-6 ((t (:height 1.0 :weight bold))))
 		  '(org-level-7 ((t (:height 1.0 :weight bold))))
 		  '(org-level-8 ((t (:height 1.0 :weight bold))))
-		  '(org-level-9 ((t (:height 1.0 :weight bold)))))
-
+		  '(org-level-9 ((t (:height 1.0 :weight bold))))
+		  ;; '(org-block-begin-line ((t (:underline t :background unspecified)))) ;; 设置代码块用上下边线包裹
+		  ;; '(org-block-end-line ((t (:overline t :underline nil :background unspecified))))
+		  )
 
     #+end_src
 
@@ -1393,27 +1435,30 @@ In that case, insert the number."
    使用下面的包来自定义一些强调符号和其对应的外观
    该库只定义了前2个,可以支持17的,有需要的自己增加就行
    #+begin_src emacs-lisp
-   (my-require 'org-extra-emphasis)
+   (yu-require 'org-extra-emphasis)
    #+end_src
+
+*** 导出时代码高亮
+    安装 htmlize 插件即可
 
 ** 自定义函数
 *** org拖拽功能
 
 #+begin_src emacs-lisp
-;; (defun yu-dnd-handler (url _action)
-;;   (let* ((filename (file-name-nondirectory (decode-coding-string (url-unhex-string url) 'utf-8))) ;; 处理中文字符
-;;          (filepath (concat
-;;                    (cond
-;;                     ((equal (file-name-extension url) "html") "./tmp/html/")
-;;                     (t "./tmp/misc/"))
-;;                    filename)))
-;;     (url-copy-file url filepath)
-;;     (insert
-;;      (if (equal (file-name-extension url) "html")
-;; 	     (concat "[[file:" filepath "]["(substring filename 0 -5)"]]")
-;; 	   (concat "[[file:" filepath "]]")))))
-;; (setq dnd-protocol-alist
-;;       '(("" . yu-dnd-handler)))
+(defun yu-dnd-handler (url _action)
+  (let* ((filename (file-name-nondirectory (decode-coding-string (url-unhex-string url) 'utf-8))) ;; 处理中文字符
+         (filepath (concat
+                   (cond
+                    ((equal (file-name-extension url) "html") "../htmls/")
+                    (t "./tmp/misc/"))
+                   filename)))
+    (url-copy-file url filepath)
+    (insert
+     (if (equal (file-name-extension url) "html")
+	     (concat "[[file:" filepath "]["(substring filename 0 -5)"]]")
+	   (concat "[[file:" filepath "]]")))))
+(setq dnd-protocol-alist
+      '(("" . yu-dnd-handler)))
 #+end_src
 
 *** 仅显示当前subtree中的图片
@@ -1480,7 +1525,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 ** Git
 *** vc-msg
 #+begin_src emacs-lisp
-(my-package-install 'vc-msg)
+(yu-package-install 'vc-msg)
 (autoload 'vc-msg-show "vc-msg" "")
 #+end_src
 
@@ -1510,7 +1555,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (global-set-key (kbd "<f12>") 'open-init-file)
 #+end_src
 
-    其他
+   其他
 #+begin_src emacs-lisp
 ;; 打开shell窗口
 (global-set-key (kbd "<f1>") 'aweshell-dedicated-toggle)
@@ -1525,10 +1570,20 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 
 #+end_src
 
+   仿照windows常用的按键
+   #+begin_src emacs-lisp  :tangle no
+(global-set-key (kbd "s-a") 'mark-whole-buffer) ;;对应Windows上面的Ctrl-a 全选
+(global-set-key (kbd "s-c") 'kill-ring-save) ;;对应Windows上面的Ctrl-c 复制
+(global-set-key (kbd "s-s") 'save-buffer) ;; 对应Windows上面的Ctrl-s 保存
+(global-set-key (kbd "s-v") 'yank) ;对应Windows上面的Ctrl-v 粘贴
+(global-set-key (kbd "s-z") 'undo) ;对应Windows上面的Ctrol-z 撤销
+(global-set-key (kbd "s-x") 'kill-region) ;对应Windows上面的Ctrol-x 剪切
+   #+end_src
+
 ** General
    general general提供了类leader键的方法，使用leader键可以减少按Ctrl和Alt等控制键的次数；不依赖于evil，可直接为Emacs配置快捷键
 #+begin_src emacs-lisp
-(my-package-install 'general)
+(yu-package-install 'general)
 (general-evil-setup t)
 #+end_src
 
@@ -1644,7 +1699,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "oe" 'org-html-export-to-html
   "os" '(lambda ()
           (interactive)
-          (my-require 'org)
+          (yu-require 'org)
           (counsel-org-agenda-headlines))
   "oa" 'org-agenda
   "ov" 'yu-org-display-subtree-inline-images
@@ -1686,7 +1741,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 ;;  "fr" 'ivy-resume
   "fb" '(lambda ()
           (interactive)
-          (my-require 'wucuo)
+          (yu-require 'wucuo)
           (let* ((wucuo-flyspell-start-mode "normal"))
             (wucuo-spell-check-internal)))
   "fe" 'flyspell-goto-next-error
@@ -1728,9 +1783,9 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 * lsp-bridge
 
 #+begin_src emacs-lisp
-(my-package-install  'posframe)
-(my-package-install  'markdown-mode)
-(my-package-install  'yasnippet)
+(yu-package-install  'posframe)
+(yu-package-install  'markdown-mode)
+(yu-package-install  'yasnippet)
 
 (require 'yasnippet)
 (yas-global-mode 1)
@@ -1967,37 +2022,9 @@ UseTab: ForIndentation
 * aweshell
 
   #+begin_src emacs-lisp
-;; (my-require 'company)
-(my-require 'aweshell)
+;; (yu-require 'company)
+(yu-require 'aweshell)
 ;; (setq aweshell-autosuggest-backend "company-style")
-  #+end_src
-
-* one-key
-
-  #+begin_src emacs-lisp
-(my-require 'one-key)
-(one-key-create-menu
- "MAGIT"
- '(
-   (("s" . "Magit status") . magit-status)
-   (("c" . "Magit checkout") . magit-checkout)
-   (("C" . "Magit commit") . magit-commit)
-   (("u" . "Magit push to remote") . magit-push-current-to-pushremote)
-   (("p" . "Magit delete remote branch") . magit-delete-remote-branch)
-   (("i" . "Magit pull") . magit-pull-from-upstream)
-   (("r" . "Magit rebase") . magit-rebase)
-   (("e" . "Magit merge") . magit-merge)
-   (("l" . "Magit log") . magit-log-all)
-   (("L" . "Magit blame") . magit-blame+)
-   (("b" . "Magit branch") . magit-branch)
-   (("B" . "Magit buffer") . magit-process-buffer)
-   (("D" . "Magit discarded") . magit-discard)
-   (("," . "Magit init") . magit-init)
-   (("." . "Magit add remote") . magit-remote-add)
-   )
- t)
-
-
   #+end_src
 
 * 临时
