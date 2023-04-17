@@ -1506,17 +1506,9 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   :states '(normal visual))
 (my-space-leader-def
   "SPC" 'ace-pinyin-jump-char-2
-  ;; "dp" 'citre-peek
   ;; 项目相关
-  "gf" 'my-counsel-git-find-file ; find file
-  "gg" 'my-counsel-git-grep ; quickest grep should be easy to press
-  "pf" 'find-file-in-project
-  "jj" 'find-file-in-project-at-point
-  "kk" 'find-file-in-project-by-selected
-  "pc" 'find-file-in-current-directory
-  "pg" 'my-multi-purpose-grep ;;find some content in project file
-  "ps" 'my-multi-purpose-grep ;;find some content in project file
-  "dd" 'counsel-etags-grep-current-directory
+  "lf" 'lsp-bridge-code-format
+
   ;; 文件相关
   "rr" 'yu-last-closed-file-reopen
   "ff" 'find-file
@@ -1524,121 +1516,47 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "fr" 'consult-recent-file
   ","  'evilnc-comment-operator
   "ss" 'consult-line
-  "sp" 'swiper-thing-at-point
-  "wf" 'popup-which-function
   "bf" 'beginning-of-defun
   "ef" 'end-of-defun
-  "bu" 'backward-up-list
-  "cl" 'evilnc-comment-or-uncomment-lines;;注释当前行
-  "ci" 'evilnc-quick-comment-or-uncomment-to-the-line;;注释一个区域
-  "cc" 'evilnc-copy-and-comment-lines;;注释并拷贝当前行
-  "cp" 'my-evilnc-comment-or-uncomment-paragraphs
-  "ic" 'my-imenu-comments
-  ;; "ts" 'evilmr-tag-selected-region ;; recommended
-  "rt" 'counsel-etags-recent-tag
-  "ft" 'counsel-etags-find-tag
+
   ;;buffer操作
   "bb" 'ido-switch-buffer
   "br" 'evilmr-replace-in-buffer
   "bx" 'kill-buffer
-  "ba" 'mark-whole-buffer
-  "bk" 'buf-move-up
-  "bj" 'buf-move-down
-  "bh" 'buf-move-left
-  "bl" 'buf-move-right
   "xb" 'kill-buffer-and-window ;; "k" is preserved to replace "c-g"
   "fs" 'save-buffer
   "cw" 'whitespace-cleanup ;;清除文件中多余的空格
   "TAB" (lambda () (interactive) (switch-to-buffer nil)) ; 切换上一个buffer
-  "em" 'shellcop-erase-buffer
-  "eb" 'eval-buffer
-  "ee" 'eval-expression
-  "cf" 'counsel-grep ; grep current buffer
-  "gg" 'my-counsel-git-grep ; quickest grep should be easy to press
   "ls" 'highlight-symbol
   "lq" 'highlight-symbol-query-replace
   "ln" 'highlight-symbol-nav-mode ; use m-n/m-p to navigation between symbols
+  "cl" 'evilnc-comment-or-uncomment-lines;;注释当前行
+  "ci" 'evilnc-quick-comment-or-uncomment-to-the-line;;注释一个区域
+  "cc" 'evilnc-copy-and-comment-lines;;注释并拷贝当前行
+
   ;; 文本操作
-  ;; "hh" 'cliphist-paste-item
-  ;; "yu" 'cliphist-select-item
   "hh" 'yu-paste
-  "yx" 'copy-to-x-clipboard ; used frequently
-  "xp" 'paste-from-x-clipboard ; used frequently
-  "hx" 'kill-ring-to-clipboard
-  "fn" 'cp-filename-of-current-buffer
+
   ;; 开关选项配置
   "tl" 'toggle-truncate-lines
-  "ts" 'aweshell-dedicated-toggle
+
   ;; Org 相关配置
   "oo" 'org-open-at-point-and-delete-other-windows
   "ot" 'yu-org-babel-goto-tangle-file
   "oe" 'org-html-export-to-html
-  "os" '(lambda ()
-          (interactive)
-          (yu-require 'org)
-          (counsel-org-agenda-headlines))
   "oa" 'org-agenda
   "ov" 'yu-org-display-subtree-inline-images
+
   ;; 其他
   "mm" 'man
-  "ms" 'helpful-at-point
-  "zz" 'my-switch-to-shell
-  "sh" 'my-select-from-search-text-history
   "vv" 'vc-msg-show
-  ;;未知快捷键
-  "ac" 'aya-create
-  "bs" '(lambda () (interactive) (goto-char (car (my-create-range t))))
-  "es" '(lambda () (interactive) (goto-char (1- (cdr (my-create-range t)))))
-  "da" 'diff-lisp-mark-selected-text-as-a
-  "db" 'diff-lisp-diff-a-and-b
-  "gf" 'counsel-git ; find file
-  "dj" 'dired-jump ;; open the dired from current file
-  "kn" 'find-file-with-similar-name ; ffip v5.3.1
-  "fd" 'find-directory-in-project-by-selected
-  "ti" 'fastdef-insert
-  "th" 'fastdef-insert-from-history
-  "rv" 'my-rename-thing-at-point
-  "gd" 'ffip-show-diff-by-description ;find-file-in-project 5.3.0+
-  "gt" 'my-evil-goto-definition ; "gt" is occupied by evil
-  "gl" 'my-git-log-trace-definition ; find history of a function or range
-  "tm" 'my-git-timemachine
-  ;; toggle overview,  @see http://emacs.wordpress.com/2007/01/16/quick-and-dirty-code-folding/
-  "c<" 'org-do-promote ; `c-c c-<'
-  "c>" 'org-do-demote ; `c-c c->'
-  "cam" 'org-tags-view ; `c-c a m': search items in org-file-apps by tag
-  "cxi" 'org-clock-in ; `c-c c-x c-i'
-  "cxo" 'org-clock-out ; `c-c c-x c-o'
-  "cxr" 'org-clock-report ; `c-c c-x c-r'
   "di" 'evilmi-delete-items
   "si" 'evilmi-select-items
-  "jb" 'my-beautfiy-code
-  "uu" 'my-transient-winner-undo
-  "xs" 'ffip-save-ivy-last
-;;  "fr" 'ivy-resume
-  "fb" '(lambda ()
-          (interactive)
-          (yu-require 'wucuo)
-          (let* ((wucuo-flyspell-start-mode "normal"))
-            (wucuo-spell-check-internal)))
-  "fe" 'flyspell-goto-next-error
-  "fa" 'flyspell-auto-correct-word
-  "lb" 'langtool-check-buffer
-  "ne" 'lazyflymake-goto-next-error
-  "ar" 'align-regexp
-  "vf" 'vc-rename-file-and-buffer
-  "vc" 'vc-copy-file-and-rename-buffer
-  "xv" 'vc-next-action ; 'c-x v v' in original
-  "va" 'git-add-current-file
-  "vk" 'git-checkout-current-file
-  "vg" 'vc-annotate ; 'c-x v g' in original
-  "v=" 'git-gutter:popup-hunk
-  "ih" 'my-goto-git-gutter ; use ivy-mode
-  "ir" 'ivy-resume
+
   ;; 窗口操作
   "wr" 'rotate-windows
   "wx" 'delete-window
   "ws" 'delete-other-windows
-  ;; "wf" 'my-toggle-full-window
   "wj" 'split-window-vertically
   "wl" 'split-window-horizontally
   "ww" 'narrow-or-widen-dwim ;单独显示一个函数
