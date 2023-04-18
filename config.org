@@ -824,6 +824,7 @@ If INCLUSIVE is t, the text object is inclusive."
 #+begin_src emacs-lisp
 (yu-package-install 'evil-surround)
 #+end_src
+
 *** 基本设置
    evil-surround 类于vim-surround，可以在evil模式下方便地操作匹配的符号
    evil-surround快捷键说明
@@ -862,6 +863,7 @@ If INCLUSIVE is t, the text object is inclusive."
 #+begin_src emacs-lisp
 (yu-package-install 'evil-visualstar)
 #+end_src
+
 *** 基本设置
    选择一段文本,按#(上)或者*(下)搜索
 #+begin_src emacs-lisp
@@ -872,19 +874,6 @@ If INCLUSIVE is t, the text object is inclusive."
    设置文本查看格式
 #+begin_src emacs-lisp
 (advice-add 'evil-visualstar/begin-search :after #'my-cc-isearch-string)
-#+end_src
-
-** find-file-in-project
-   ffip-diff-mode时的evil按键设置
-#+begin_src emacs-lisp
-(defun ffip-diff-mode-hook-setup ()
-  (evil-local-set-key 'normal "q" (lambda () (interactive) (quit-window t)))
-  (evil-local-set-key 'normal (kbd "RET") 'ffip-diff-find-file)
-  ;; "C-c C-a" is binding to `diff-apply-hunk' in `diff-mode'
-  (evil-local-set-key 'normal "u" 'diff-undo)
-  (evil-local-set-key 'normal "a" 'ffip-diff-apply-hunk)
-  (evil-local-set-key 'normal "o" 'ffip-diff-find-file))
-(add-hook 'ffip-diff-mode-hook 'ffip-diff-mode-hook-setup)
 #+end_src
 
 ** evil-escape
@@ -948,6 +937,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 #+begin_src emacs-lisp
 (yu-package-install 'evil-nerd-commenter)
 #+end_src
+
 *** 设置
    快速进行注释，不依赖于evil
 #+begin_src emacs-lisp
@@ -993,6 +983,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 #+begin_src emacs-lisp
 (yu-package-install 'evil-matchit)
 #+end_src
+
 *** 设置
    按%进行匹配跳转
    #+begin_src emacs-lisp
@@ -1020,6 +1011,7 @@ If N > 0 and in js, only occurrences in current N lines are renamed."
 #+begin_src emacs-lisp
 (yu-package-install 'evil-find-char-pinyin)
 #+end_src
+
 #+begin_src emacs-lisp
 (my-run-with-idle-timer 4 #'evil-find-char-pinyin-mode)
 #+end_src
