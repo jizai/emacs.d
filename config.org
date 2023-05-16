@@ -150,7 +150,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
         ;; 继续递归搜索子目录
         (add-subdirs-to-load-path subdir-path)))))
 
-(add-subdirs-to-load-path (concat (getenv "HOME") "/.emacs.d/yuemacs")))
+(add-subdirs-to-load-path (concat (getenv "HOME") "/.emacs.d/yuemacs"))
 #+end_src
 
 ** 外观
