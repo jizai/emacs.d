@@ -150,7 +150,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
         ;; 继续递归搜索子目录
         (add-subdirs-to-load-path subdir-path)))))
 
-(add-subdirs-to-load-path (concat (getenv "HOME") "/.emacs.d/yuemacs"))
+(add-subdirs-to-load-path "/home/yu/.emacs.d/yuemacs")
 #+end_src
 
 ** 外观
@@ -427,6 +427,8 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
 (define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
 (define-key evil-insert-state-map (kbd "C-a") 'back-to-indentation)
 (define-key evil-insert-state-map (kbd "C-l") 'delete-char)
+(define-key evil-insert-state-map (kbd "C-j") (lambda () (interactive) (end-of-line) (newline-and-indent)))
+(define-key evil-insert-state-map (kbd "C-k") (lambda () (interactive) (beginning-of-line) (newline-and-indent) (previous-line)))
 #+end_src
 
 *** 定义常规text objects
@@ -636,6 +638,7 @@ If the character before and after CH is space or tab, CH is NOT slash"
 (advice-add 'evil-set-marker :before #'my-evil-set-marker-hack)
 
 #+end_src
+
 *** 定义自己的文本对象v 代表某个语句
 #+begin_src emacs-lisp
 (evil-define-text-object my-evil-a-statement (count &optional beg end type)
@@ -1336,6 +1339,35 @@ folder, otherwise delete a word"
     (yu-package-install 'htmlize)
     #+end_src
 
+** Babel
+   org-babel: 按需加载所有的语言  [[https://emacs-china.org/t/org-babel/18699/8][参考]]
+   #+begin_src emacs-lisp
+(defun yu-org-mode-setup ()
+  (when (eq major-mode 'org-mode)
+    (local-set-key (kbd "<f5>") 'org-ctrl-c-ctrl-c)))
+
+(add-hook 'org-mode-hook 'yu-org-mode-setup)
+
+
+(defun yu-org-babel-execute-src-block (&optional _arg info _params)
+  "Load language if needed"
+  (let* ((lang (nth 0 info))
+         (sym (if (member (downcase lang) '("c" "cpp" "c++")) 'C (intern lang)))
+         (backup-languages org-babel-load-languages))
+    ;; - (LANG . nil) 明确禁止的语言，不加载。
+    ;; - (LANG . t) 已加载过的语言，不重复载。
+    (unless (assoc sym backup-languages)
+      (condition-case err
+          (progn
+            (org-babel-do-load-languages 'org-babel-load-languages (list (cons sym t)))
+            (setq-default org-babel-load-languages (append (list (cons sym t)) backup-languages)))
+        (file-missing
+         (setq-default org-babel-load-languages backup-languages)
+         err)))))
+
+(advice-add 'org-babel-execute-src-block :before #'yu-org-babel-execute-src-block )
+   #+end_src
+
 ** 自定义函数
 *** org拖拽功能
 
@@ -1438,8 +1470,6 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
 (global-set-key (kbd "C-h") 'delete-backward-char)
 (global-set-key (kbd "M-m") 'help-command)
 (define-key isearch-mode-map "\C-h" 'isearch-delete-char)
-;; (global-set-key (kbd "C-w") 'backward-kill-word)
-;; (global-set-key (kbd "C-u") 'backward-kill-sentence)
 #+end_src
 
    快速打开配置文件
@@ -1599,7 +1629,8 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
    git clone https://github.com/manateelazycat/lsp-bridge
    sudo apt install clangd
    sudo apt install python3-pip
-   pip install epc -i https://pypi.tuna.tsinghua.edu.cn/simple
+   pip install  -i https://pypi.tuna.tsinghua.edu.cn/simple epc
+
    #+begin_src emacs-lisp
      (yu-package-install  'posframe)
      (yu-package-install  'markdown-mode)
