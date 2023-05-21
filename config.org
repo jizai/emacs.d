@@ -150,7 +150,7 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
         ;; 继续递归搜索子目录
         (add-subdirs-to-load-path subdir-path)))))
 
-(add-subdirs-to-load-path "/home/yu/.emacs.d/yuemacs")
+(add-subdirs-to-load-path (concat (getenv "HOME") "/.emacs.d/yuemacs"))
 #+end_src
 
 ** 外观
@@ -414,23 +414,6 @@ If USE-INDIRECT-BUFFER is t, use `indirect-buffer' to hold widen content."
   (setq evil-default-cursor t))
 #+end_src
 
-    设置evil的插入模式使用emacs原生按键
-#+begin_src emacs-lisp
-;; remove all keybindings from insert-state keymap,it is VERY VERY important
-(setcdr evil-insert-state-map nil)
-;; 把emacs模式下的按键绑定到Insert模式下
-(define-key evil-insert-state-map
-  (read-kbd-macro evil-toggle-key) 'evil-emacs-state)
-;; but [escape] should switch back to normal state
-(define-key evil-insert-state-map [escape] 'evil-normal-state)
-(define-key evil-insert-state-map (kbd "C-w") 'backward-kill-word)
-(define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
-(define-key evil-insert-state-map (kbd "C-a") 'back-to-indentation)
-(define-key evil-insert-state-map (kbd "C-l") 'delete-char)
-(define-key evil-insert-state-map (kbd "C-j") (lambda () (interactive) (end-of-line) (newline-and-indent)))
-(define-key evil-insert-state-map (kbd "C-k") (lambda () (interactive) (beginning-of-line) (newline-and-indent) (previous-line)))
-#+end_src
-
 *** 定义常规text objects
    定义text objects, works on evil v1.0.9 using older method
    例 =abc=  光标在a上,按住vi=,则选取abc
@@ -605,11 +588,25 @@ If the character before and after CH is space or tab, CH is NOT slash"
 
 ;; 配置evil-insert模式下的快捷键
 (define-key evil-insert-state-map (kbd "C-e") 'move-end-of-line)
-(define-key evil-insert-state-map (kbd "C-k") 'kill-line)
 
 ;; 配置evil-emacs模式下的快捷键
 (define-key evil-emacs-state-map (kbd "M-j") 'yas-expand)
 (define-key evil-ex-completion-map (kbd "C-a") 'back-to-indentation)
+
+;; 设置evil的插入模式使用emacs原生按键
+;; remove all keybindings from insert-state keymap,it is VERY VERY important
+(setcdr evil-insert-state-map nil)
+;; 把emacs模式下的按键绑定到Insert模式下
+(define-key evil-insert-state-map
+  (read-kbd-macro evil-toggle-key) 'evil-emacs-state)
+;; but [escape] should switch back to normal state
+(define-key evil-insert-state-map [escape] 'evil-normal-state)
+(define-key evil-insert-state-map (kbd "C-w") 'backward-kill-word)
+(define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
+(define-key evil-insert-state-map (kbd "C-a") 'back-to-indentation)
+(define-key evil-insert-state-map (kbd "C-l") 'delete-char)
+(define-key evil-insert-state-map (kbd "C-j") (lambda () (interactive) (end-of-line) (newline-and-indent)))
+(define-key evil-insert-state-map (kbd "C-k") (lambda () (interactive) (beginning-of-line) (newline-and-indent) (previous-line)))
 #+end_src
 
 *** 设置evil的标记历史显示格式
