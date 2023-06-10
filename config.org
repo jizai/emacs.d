@@ -602,7 +602,7 @@ If the character before and after CH is space or tab, CH is NOT slash"
 ;; but [escape] should switch back to normal state
 (define-key evil-insert-state-map [escape] 'evil-normal-state)
 (define-key evil-insert-state-map (kbd "C-w") 'backward-kill-word)
-(define-key evil-insert-state-map (kbd "C-u") 'backward-kill-sentence)
+(define-key evil-insert-state-map (kbd "C-u") 'evil-delete-back-to-indentation)
 (define-key evil-insert-state-map (kbd "C-a") 'back-to-indentation)
 (define-key evil-insert-state-map (kbd "C-l") 'delete-char)
 (define-key evil-insert-state-map (kbd "C-j") (lambda () (interactive) (end-of-line) (newline-and-indent)))
@@ -1226,9 +1226,7 @@ folder, otherwise delete a word"
 #+begin_src emacs-lisp
 (yu-package-install 'consult)
 (global-set-key (kbd "C-s") 'consult-line)
-(defun yu-paste()
-  (interactive)
-  (insert (consult--read-from-kill-ring)))
+
 ;; 关闭最近打开文件时的预览功能
 (with-eval-after-load 'consult
   (consult-customize consult-recent-file :preview-key nil))
@@ -1567,7 +1565,8 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "ef" 'end-of-defun
 
   ;;buffer操作
-  "bb" 'ido-switch-buffer
+  "bb" 'consult-buffer
+  "bm" 'consult-minor-mode-menu
   "br" 'evilmr-replace-in-buffer
   "bx" 'kill-buffer
   "xb" 'kill-buffer-and-window ;; "k" is preserved to replace "c-g"
@@ -1582,7 +1581,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "cc" 'evilnc-copy-and-comment-lines;;注释并拷贝当前行
 
   ;; 文本操作
-  "hh" 'yu-paste
+  "hh" 'consult-yank-pop
 
   ;; 开关选项配置
   "tl" 'toggle-truncate-lines
@@ -1595,7 +1594,7 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
   "ov" 'yu-org-display-subtree-inline-images
 
   ;; 其他
-  "mm" 'man
+  "mm" 'consult-man
   "vv" 'vc-msg-show
   "di" 'evilmi-delete-items
   "si" 'evilmi-select-items
@@ -1639,6 +1638,9 @@ INCLUDE-LINKED is passed to `org-display-inline-images'."
      (global-lsp-bridge-mode)
      ;; (setq lsp-bridge-enable-auto-format-code t)
      (setq acm-candidate-match-function 'orderless-prefixes)
+     (setq acm-enable-quick-access t)
+     (setq acm-quick-access-use-number-select t)
+     (setq acm-enable-icon nil)
 
      (condition-case nil
 	 (progn
